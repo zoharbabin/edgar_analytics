@@ -13,7 +13,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-.eggs/
+.egg/
 lib/
 lib64/
 parts/
@@ -198,3 +198,6 @@ temp/
 # Custom directories for storing sensitive or temporary data
 secrets/
 cache/
+
+# Additional specific files to ignore
+digest.txt
