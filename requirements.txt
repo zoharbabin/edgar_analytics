@@ -1,0 +1,10 @@
+# Main Dependencies
+pandas
+numpy
+statsmodels
+edgartools
+click
+
+# tests
+pytest
+pytz
