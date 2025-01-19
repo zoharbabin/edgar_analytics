@@ -31,6 +31,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+      
+      - name: Create EDGAR data directory
+        run: mkdir -p /home/runner/.edgar        
 
       - name: Run tests
         run: pytest --maxfail=1 --disable-warnings -v -n auto
