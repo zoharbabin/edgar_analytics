@@ -1,6 +1,7 @@
 # tests/test_cli.py
 
 import pytest
+from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 from edgar_analytics.cli import main
 
@@ -8,36 +9,105 @@ from edgar_analytics.cli import main
 def runner():
     return CliRunner()
 
-def test_cli_no_peers(runner, caplog):
+@pytest.fixture
+def mock_company():
+    """Returns a mocked Company object with no real network calls."""
+    mock_comp = MagicMock()
+    # e.g. no real filings fetched
+    mock_comp.get_filings.return_value.head.return_value = []
+    return mock_comp
+
+@pytest.fixture
+def mock_multifin():
+    """
+    Returns a mock for 'edgar.MultiFinancials' so it doesn't do
+    real XBRL parsing or network calls.
+    """
+    mock_mf = MagicMock()
+    # Provide trivial or None returns
+    mock_mf.get_income_statement.return_value = None
+    mock_mf.get_balance_sheet.return_value = None
+    mock_mf.get_cash_flow_statement.return_value = None
+    return mock_mf
+
+
+@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
+@patch("edgar_analytics.orchestrator.Company")
+@pytest.mark.slow
+def test_cli_no_peers(
+    mock_Company, 
+    mock_MultiFinancials, 
+    mock_company, 
+    mock_multifin, 
+    runner, 
+    caplog
+):
     """
     Test the CLI with a single ticker and no peers.
     """
+    # Any time orchestrator calls 'Company(ticker)', return our mock_company
+    mock_Company.return_value = mock_company
+    # Any time multi_period_analysis calls 'MultiFinancials(...)', return our mock_mf
+    mock_MultiFinancials.return_value = mock_multifin
+
     result = runner.invoke(main, ["AAPL"])
-    assert result.exit_code == 0  
+    assert result.exit_code == 0
+    # Because the real code in analyze_company should run, we see the log:
     assert "Analyzing company: AAPL" in caplog.text
 
-def test_cli_with_peers(runner, caplog):
-    """
-    Test the CLI with multiple peers.
-    """
+
+@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
+@patch("edgar_analytics.orchestrator.Company")
+def test_cli_with_peers(
+    mock_Company,
+    mock_MultiFinancials,
+    mock_company,
+    mock_multifin,
+    runner,
+    caplog
+):
+    mock_Company.return_value = mock_company
+    mock_MultiFinancials.return_value = mock_multifin
+
     result = runner.invoke(main, ["AAPL", "MSFT", "GOOGL"])
     assert result.exit_code == 0
     assert "Comparing AAPL with peers: ['MSFT', 'GOOGL']" in caplog.text
 
-def test_cli_with_csv(runner, tmp_path, caplog):
-    """
-    Test the CLI while passing a csv output path.
-    """
+
+@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
+@patch("edgar_analytics.orchestrator.Company")
+def test_cli_with_csv(
+    mock_Company,
+    mock_MultiFinancials,
+    mock_company,
+    mock_multifin,
+    runner,
+    tmp_path,
+    caplog
+):
+    mock_Company.return_value = mock_company
+    mock_MultiFinancials.return_value = mock_multifin
+
     csv_file = tmp_path / "out.csv"
     result = runner.invoke(main, ["AAPL", "MSFT", "--csv", str(csv_file)])
     assert result.exit_code == 0
     assert csv_file.exists()
     assert "Snapshot summary saved to" in caplog.text
 
-def test_cli_invalid_ticker(runner, caplog):
-    """
-    Test the CLI with an invalid ticker to ensure error handling.
-    """
+
+@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
+@patch("edgar_analytics.orchestrator.Company")
+def test_cli_invalid_ticker(
+    mock_Company,
+    mock_MultiFinancials,
+    mock_company,
+    mock_multifin,
+    runner,
+    caplog
+):
+    mock_Company.return_value = mock_company
+    mock_MultiFinancials.return_value = mock_multifin
+
     result = runner.invoke(main, ["@BADTICKER"])
-    assert result.exit_code == 0  # Depending on how you handle errors
+    assert result.exit_code == 0  # or whatever you expect
     assert "Invalid main ticker: @BADTICKER" in caplog.text

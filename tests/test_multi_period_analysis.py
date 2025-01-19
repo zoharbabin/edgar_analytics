@@ -16,10 +16,18 @@ def test_retrieve_multi_year_data_no_10k():
     If get_filings(form="10-K") returns an empty list or None, we skip that part.
     """
     mock_company = MagicMock()
-    mock_company.get_filings.return_value.head.return_value = []  # No 10-K
-    with patch("edgar_analytics.multi_period_analysis.MultiFinancials") as mock_mf:
+    # Force no 10-K
+    mock_company.get_filings.return_value.head.return_value = []
+
+    # Also mock MultiFinancials
+    with patch("edgar_analytics.multi_period_analysis.Company", return_value=mock_company), \
+         patch("edgar_analytics.multi_period_analysis.MultiFinancials") as mock_mf:
+        # Now "Company(ticker)" is replaced with our mock_company
+        # "MultiFinancials(...)" is replaced with mock_mf
         data = retrieve_multi_year_data("FAKE", n_years=2, n_quarters=2)
-        assert data["annual_inc_df"].empty
+
+    # Then test your expectations
+    assert data["annual_inc_df"].empty
 
 def test_extract_period_values():
     df = pd.DataFrame({

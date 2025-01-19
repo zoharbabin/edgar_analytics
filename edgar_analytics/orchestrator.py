@@ -169,20 +169,3 @@ class TickerOrchestrator:
             "extra_alerts": extra_alerts,
         }
 
-
-def main() -> None:
-    """
-    Demonstration entry point to showcase orchestrating a single ticker analysis.
-    In a real production script, you might call this from a CLI or another
-    orchestration layer.
-    """
-    orchestrator = TickerOrchestrator()
-    orchestrator.analyze_company(
-        ticker="AAPL",
-        peers=["MSFT", "GOOGL"],
-        csv_path="analysis_outputs/summary.csv"
-    )
-
-
-if __name__ == "__main__":
-    main()

@@ -8,3 +8,4 @@ click
 # tests
 pytest
 pytz
+pytest-xdist
