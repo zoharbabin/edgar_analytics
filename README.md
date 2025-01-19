@@ -18,10 +18,9 @@
 7. [Detailed Method Reference](#detailed-method-reference)
 8. [Logging](#logging)
 9. [Extensibility](#extensibility)
-10. [Project Structure](#project-structure)
-11. [Testing](#testing)
-12. [Contributing](#contributing)
-13. [License](#license)
+10. [Testing](#testing)
+11. [Contributing](#contributing)
+12. [License](#license)
 
 ---
 
