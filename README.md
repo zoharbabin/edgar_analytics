@@ -318,35 +318,16 @@ EDGAR Analytics is designed with modularity and extensibility in mind, allowing 
 
 ## Testing
 
-The project uses **pytest** for testing to ensure reliability and correctness.
+The project uses **pytest** for testing to ensure reliability and correctness.  
+If you haven't already set up a virtual environment, refer to the [Setting Up a Local Virtual Environment](#setting-up-a-local-virtual-environment) section.
 
-1. **Install Test Dependencies**
+**Run Tests**
 
-   If you haven't already set up a virtual environment, refer to the [Setting Up a Local Virtual Environment](#setting-up-a-local-virtual-environment) section.
+Execute all tests, and ensure proper coverage for your new code: 
 
-   Then, install the development dependencies:
-
-   ```bash
-   pip install -e .[test]
-   ```
-
-2. **Run Tests**
-
-   Execute all tests using:
-
-   ```bash
-   pytest
-   ```
-
-3. **Check Coverage (Optional)**
-
-   To check test coverage, you can integrate with `pytest-cov`:
-
-   ```bash
-   pytest --cov=edgar_analytics
-   ```
-
-   This will provide a coverage report indicating which parts of the codebase are covered by tests.
+```bash
+pytest -v --cov=edgar_analytics --cov-report=term-missing
+```
 
 ---
 
@@ -355,43 +336,14 @@ The project uses **pytest** for testing to ensure reliability and correctness.
 Contributions, bug reports, and feature requests are welcome! To contribute:
 
 1. **Fork the Repository**  
-   Click the "Fork" button at the top-right of the repository page on GitHub to create your own copy.
-
-2. **Clone Your Fork**  
-   ```bash
-   git clone https://github.com/your-username/edgar_analytics.git
-   cd edgar_analytics
-   ```
-
-3. **Create a New Branch**  
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-4. **Make Your Changes**  
-   Implement your feature or fix. Ensure that your code follows the existing style and structure.
-
-5. **Run Tests**  
-   Ensure all tests pass and add new tests for your changes:
-   ```bash
-   pytest
-   ```
-
-6. **Commit Your Changes**  
-   ```bash
-   git add .
-   git commit -m "Add feature: your feature description"
-   ```
-
+2. **Create a New Branch**  
+3. **Make Your Changes** - Implement your feature or fix. Ensure that your code follows the existing style and structure.
+5. **Run Tests & Coverage** - Ensure all tests pass and that you have solid coverage for any new code before contributing a pull-request.  
+6. **Commit Your Changes with proper documentation** 
 7. **Push to Your Fork**  
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+8. **Create a Pull-Request Upstream**  
 
-8. **Create a Pull Request**  
-   Navigate to the original repository on GitHub and click "Compare & pull request." Provide a clear description of your changes.
-
-**Guidelines**:
+**Contribution Guidelines**:
 
 - **Code Quality**: 
    - Adhere to PEP8, PEP20, and PEP257.  
