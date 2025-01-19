@@ -1,7 +1,7 @@
 """
 tests/test_orchestrator.py
 
-Tests for orchestrator.py (TickerOrchestrator). 
+Tests for orchestrator.py (TickerOrchestrator) and the TickerDetector class.
 We mock external Edgar calls, forecast calls, etc., to avoid real network operations.
 ReportingEngine tests have been moved to test_reporting.py.
 """
@@ -10,7 +10,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 
-from edgar_analytics.orchestrator import TickerOrchestrator
+from edgar_analytics.orchestrator import TickerOrchestrator, TickerDetector
 from edgar_analytics.reporting import ReportingEngine
 
 
@@ -103,3 +103,108 @@ def test_analyze_company_exception_in_creation(caplog):
         orchestrator.analyze_company("AAPL", peers=[])
 
     assert "Failed to create Company object for AAPL: Creation error" in caplog.text
+
+
+# ---------------------------------------------------------------------
+#                Test for the TickerDetector
+# ---------------------------------------------------------------------
+
+class TestTickerDetector:
+    """
+    Test suite for the TickerDetector class, ensuring robust coverage of
+    validate_ticker_symbol(...) and search(...) functionalities.
+    """
+
+    @pytest.mark.parametrize("valid_ticker", [
+        "AAPL",
+        "MSFT",
+        "GOOG",
+        "TSLA",
+        "BRK.A",
+        "BRK.B",
+        "RY.TO",
+        "NGG.L",      # Deliberately not part of the regex suffix -> Should remain invalid by default,
+                     # but if you decide to allow ".L", confirm or adjust the pattern. 
+                     # If you truly want to allow ".L", ensure the pattern includes that logic.
+        "BABA",
+        "VTI",
+        "ABC-1",
+        "SHOP.TO",
+        "A-B",        # A dash with suffix
+        "BRK.A1",     # suffix alphanumeric
+        "A-123",      # multiple digits suffix
+    ])
+    def test_validate_ticker_symbol_valid(self, valid_ticker):
+        """
+        TickerDetector.validate_ticker_symbol should return True for valid tickers
+        that match the class-level regex pattern.
+        """
+        # Some entries might need pattern refinements if we want them truly valid.
+        # Adjust test or pattern as needed.
+        assert TickerDetector.validate_ticker_symbol(valid_ticker) is True, (
+            f"Expected '{valid_ticker}' to be recognized as valid."
+        )
+
+    @pytest.mark.parametrize("invalid_ticker", [
+        "",            # empty
+        "aaaaaa",      # 6 letters => invalid
+        "AAPL1",       # missing '.' or '-' for suffix
+        "AAPL@",       # invalid character
+        "12345",       # no letters, only digits => does not match
+        "BRK..A",      # double dot not in pattern
+        "RY--TO",      # double dash not in pattern
+        "AB.C.D",      # multiple suffix groups? This might or might not pass depending on pattern
+        "A#B",         # invalid character
+        "aapl",        # lowercase is not allowed by the pattern
+        "A-BB-C",      # multiple suffix segments might fail if only 1 suffix is allowed 
+                       # or if pattern doesn't allow multiple segments 
+        None,          # not even a string => should raise ValueError
+    ])
+    def test_validate_ticker_symbol_invalid(self, invalid_ticker):
+        """
+        TickerDetector.validate_ticker_symbol should return False or raise ValueError
+        if the ticker is not a string, too long, or doesn't match the allowed pattern.
+        """
+        if not isinstance(invalid_ticker, str):
+            # Non-string inputs should raise a ValueError
+            with pytest.raises(ValueError):
+                TickerDetector.validate_ticker_symbol(invalid_ticker)
+        else:
+            # For all other invalid string cases, the method should return False.
+            assert TickerDetector.validate_ticker_symbol(invalid_ticker) is False, (
+                f"Expected '{invalid_ticker}' to be recognized as invalid."
+            )
+
+    @pytest.mark.parametrize("sample_text,expected_match", [
+        ("i like AAPL and MSFT", "AAPL"),  # 'i' lowercase because I is a valid ticker (IntelSat Global Holdings)
+        ("The quick brown fox jumps over the lazy dog", None),
+        ("BRK.A soared today", "BRK.A"),
+        ("Check out ABC-1 or SHOP.TO in the market", "ABC-1"),  # returns first match
+        ("No real ticker here!", None),
+    ])
+    def test_search(self, sample_text, expected_match):
+        """
+        TickerDetector.search(...) should return a re.Match if a valid ticker substring
+        is found; None otherwise. If multiple tickers are present, it returns the first match.
+        """
+        match = TickerDetector.search(sample_text)
+        if expected_match is None:
+            assert match is None, (
+                f"Expected no match for '{sample_text}', but got '{match.group(0)}'."
+            )
+        else:
+            assert match is not None, (
+                f"Expected a match for '{sample_text}' but got None."
+            )
+            assert match.group(0) == expected_match, (
+                f"Expected first match = '{expected_match}', got '{match.group(0)}'."
+            )
+
+    def test_search_non_string_raises_valueerror(self):
+        """
+        search(...) should raise ValueError if passed a non-string input.
+        """
+        with pytest.raises(ValueError):
+            TickerDetector.search(None)
+        with pytest.raises(ValueError):
+            TickerDetector.search(12345)

@@ -6,6 +6,7 @@ tickers, retrieves data, and calls into other modules (e.g., metrics, forecastin
 multi_period_analysis) to obtain results. It then delegates presentation/reporting
 responsibilities to reporting.py.
 """
+import re
 
 import logging
 from typing import Dict, Any, List, Optional
@@ -22,22 +23,53 @@ from .multi_period_analysis import (
 )
 from .reporting import ReportingEngine
 
-
-def validate_ticker_symbol(ticker: str) -> bool:
+class TickerDetector:
     """
-    Validate ticker symbols to prevent misuse or injection-like strings.
+    Manages detection of valid public company ticker symbols using regex patterns
+    (with class-level regex objects for efficient memory and speed usage).
 
-    Parameters
-    ----------
-    ticker : str
-        A company's ticker symbol.
-
-    Returns
-    -------
-    bool
-        True if the ticker is deemed valid, False otherwise.
+    This class encapsulates ticker-detection logic:
+      - A search-based pattern to locate ticker-like substrings within larger text.
+      - A full-match pattern to validate if an entire string is a valid ticker.
     """
-    return 1 <= len(ticker) <= 10 and ticker.isalnum()
+
+    # Allow exactly 1 to 5 uppercase letters, and at most ONE optional ".XYZ" or "-XYZ" group:
+    _TICKER_REGEX = re.compile(
+        r"\b[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?\b"
+    )
+    _TICKER_FULLMATCH_REGEX = re.compile(
+        r"^[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?$"
+    )
+
+    @classmethod
+    def search(cls, text: str) -> re.Match | None:
+        """
+        Perform a regex search on the given text to find a valid ticker substring.
+
+        :param text: The text string to search.
+        :type text: str
+        :return: A regex Match object if a valid ticker substring is found; otherwise None.
+        :rtype: re.Match or None
+        :raises ValueError: If the provided text is not a string.
+        """
+        if not isinstance(text, str):
+            raise ValueError("Input must be a string.")
+        return cls._TICKER_REGEX.search(text)
+
+    @classmethod
+    def validate_ticker_symbol(cls, ticker: str) -> bool:
+        """
+        Validate if the entire input string is exactly one valid ticker symbol.
+
+        :param ticker: The string to validate.
+        :type ticker: str
+        :return: True if `ticker` fully matches a valid ticker format; otherwise False.
+        :rtype: bool
+        :raises ValueError: If the provided ticker is not a string.
+        """
+        if not isinstance(ticker, str):
+            raise ValueError("Ticker must be a string.")
+        return bool(cls._TICKER_FULLMATCH_REGEX.fullmatch(ticker))
 
 
 class TickerOrchestrator:
@@ -79,7 +111,7 @@ class TickerOrchestrator:
         -------
         None
         """
-        if not validate_ticker_symbol(ticker):
+        if not TickerDetector.validate_ticker_symbol(ticker):
             self.logger.error("Invalid main ticker: %s", ticker)
             return
 
@@ -93,7 +125,7 @@ class TickerOrchestrator:
 
         self.logger.info("Comparing %s with peers: %s", ticker, peers)
         for peer in peers:
-            if validate_ticker_symbol(peer):
+            if TickerDetector.validate_ticker_symbol(peer):
                 peer_data = self._analyze_ticker_for_metrics(peer)
                 metrics_map[peer] = peer_data
             else:
