@@ -12,6 +12,7 @@ from edgar import Company, MultiFinancials
 from .logging_utils import get_logger
 from .synonyms import SYNONYMS
 from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
+from .synonyms_utils import find_synonym_value, compute_capex_for_column
 from .config import ALERTS_CONFIG
 
 logger = get_logger(__name__)
@@ -115,9 +116,6 @@ def find_best_row_for_synonym(df: pd.DataFrame, syn_key: str, columns_order: lis
     if df.empty:
         return None
 
-    from .synonyms_utils import find_synonym_value
-
-    # We'll attempt a manual approach to pick the row with largest sum
     idx_lower = df.index.str.lower()
     synonyms_list = SYNONYMS.get(syn_key, [])
     candidate_rows = []
@@ -183,6 +181,7 @@ def compute_cagr(values_dict: dict) -> float:
 def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
     """
     Retrieve up to n_quarters of 10-Q for inventory, receivables, free_cf detection.
+    Now uses compute_capex_for_column(...) to better approximate each period's capex.
     """
     results = {"inventory": {}, "receivables": {}, "free_cf": {}}
     tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
@@ -205,24 +204,14 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
             cf_df.columns = cf_df.columns.map(str)
             sorted_cf_cols = sorted(cf_df.columns, key=parse_period_label)
 
+            # Operating CF row
             op_values = find_multi_col_values(cf_df, "cash_flow_operating", sorted_cf_cols, f"{tkr}->OpCF")
-            direct_capex_vals = find_multi_col_values(cf_df, "capital_expenditures", sorted_cf_cols, f"{tkr}->CapEx")
 
             fcf_map = {}
-            if direct_capex_vals:
-                for c in sorted_cf_cols:
-                    opcf = op_values.get(c, 0.0)
-                    cpx = direct_capex_vals.get(c, 0.0)
-                    if cpx < 0:
-                        cpx = abs(cpx)
-                    fcf_map[c] = opcf - cpx
-            else:
-                inv_vals = find_multi_col_values(cf_df, "cash_flow_investing", sorted_cf_cols, f"{tkr}->InvCF")
-                for c in sorted_cf_cols:
-                    opcf = op_values.get(c, 0.0)
-                    invest_cf = inv_vals.get(c, 0.0)
-                    capex_guess = min(invest_cf, 0.0) * -1
-                    fcf_map[c] = opcf - capex_guess
+            for col in sorted_cf_cols:
+                opcf = op_values.get(col, 0.0)
+                capex_for_period = compute_capex_for_column(cf_df, col, debug_label=f"{tkr}->CapExCol")
+                fcf_map[col] = opcf - capex_for_period
 
             results["free_cf"] = fcf_map
 

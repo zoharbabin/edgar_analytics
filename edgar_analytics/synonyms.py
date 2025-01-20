@@ -4,6 +4,7 @@
 MASTER SYNONYMS DICTIONARY (broad coverage) for mapping diverse
 financial statement labeling to a standardized set of keys.
 """
+
 SYNONYMS = {
 
     # ======================
@@ -112,7 +113,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   NONOPERATING / OTHER
+    #  NONOPERATING / OTHER
     # ======================
     "other_income_expense": [
         "us-gaap:NonoperatingIncomeExpense",
@@ -133,7 +134,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #     INCOME TAXES
+    #    INCOME TAXES
     # ======================
     "income_tax_expense": [
         "us-gaap:IncomeTaxExpenseBenefit",
@@ -146,7 +147,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   DEPRECIATION & AMORTIZATION
+    # DEPRECIATION & AMORTIZATION
     # ======================
     "depreciation_amortization": [
         "us-gaap:DepreciationDepletionAndAmortization",
@@ -160,7 +161,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    # DEPRECIATION EMBEDDED IN COST OF SALES
+    # DEPRECIATION EMBEDDED IN COGS
     # ======================
     "depreciation_in_cost_of_sales": [
         "us-gaap:DepreciationAmortizationInCostOfGoodsSold",
@@ -172,7 +173,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #       NET INCOME
+    #     NET INCOME
     # ======================
     "net_income": [
         "us-gaap:NetIncomeLoss",
@@ -184,7 +185,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #        E P S
+    #         EPS
     # ======================
     "earnings_per_share_basic": [
         "us-gaap:EarningsPerShareBasic",
@@ -198,7 +199,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   SHARES OUTSTANDING
+    # SHARES OUTSTANDING
     # ======================
     "common_shares_outstanding": [
         "dei_EntityCommonStockSharesOutstanding",
@@ -209,7 +210,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #       CASH & EQUIV
+    #    CASH & EQUIV
     # ======================
     "cash_equivalents": [
         "us-gaap:CashAndCashEquivalentsAtCarryingValue",
@@ -220,7 +221,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   SHORT-TERM INVESTMENTS
+    #  SHORT-TERM INVESTMENTS
     # ======================
     "short_term_investments": [
         "us-gaap_AvailableForSaleSecuritiesDebtSecuritiesCurrent",
@@ -231,7 +232,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   ACCOUNTS RECEIVABLE
+    # ACCOUNTS RECEIVABLE
     # ======================
     "accounts_receivable": [
         "us-gaap:AccountsReceivableNetCurrent",
@@ -242,7 +243,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #       INVENTORY
+    #      INVENTORY
     # ======================
     "inventory": [
         "us-gaap:InventoryNet",
@@ -253,11 +254,11 @@ SYNONYMS = {
         "Inventory, finished goods",
         "Finished goods inventory",
         "Inventory, raw materials",
-        "us-gaap_InventoryDisclosureTextBlock", 
+        "us-gaap_InventoryDisclosureTextBlock",
     ],
 
     # ======================
-    #  OTHER CURRENT ASSETS
+    # OTHER CURRENT ASSETS
     # ======================
     "other_current_assets": [
         "us-gaap_OtherAssetsCurrent",
@@ -277,7 +278,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  LONG-TERM INVESTMENTS
+    # LONG-TERM INVESTMENTS
     # ======================
     "long_term_investments": [
         "us-gaap_LongTermInvestments",
@@ -298,7 +299,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #     INTANGIBLE ASSETS
+    #   INTANGIBLE ASSETS
     # ======================
     "intangible_assets": [
         "Intangible assets",
@@ -323,7 +324,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #         GOODWILL
+    #       GOODWILL
     # ======================
     "goodwill": [
         "us-gaap:Goodwill",
@@ -332,7 +333,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    OTHER NON-CURRENT
+    #  OTHER NON-CURRENT ASSETS
     # ======================
     "other_noncurrent_assets": [
         "us-gaap:AssetsNoncurrent",
@@ -343,7 +344,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #      TOTAL ASSETS
+    #     TOTAL ASSETS
     # ======================
     "total_assets": [
         "us-gaap:Assets",
@@ -352,7 +353,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  ACCOUNTS PAYABLE
+    # ACCOUNTS PAYABLE
     # ======================
     "accounts_payable": [
         "us-gaap:AccountsPayableCurrent",
@@ -373,7 +374,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   CURRENT LIABILITIES
+    #  CURRENT LIABILITIES
     # ======================
     "current_liabilities": [
         "us-gaap:LiabilitiesCurrent",
@@ -394,7 +395,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  SHORT-TERM DEBT
+    #   SHORT-TERM DEBT
     # ======================
     "short_term_debt": [
         "us-gaap_CommercialPaper",
@@ -427,7 +428,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    OTHER LIABILITIES
+    #  OTHER LIABILITIES
     # ======================
     "other_noncurrent_liabilities": [
         "us-gaap_LiabilitiesNoncurrent",
@@ -437,7 +438,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    TOTAL LIABILITIES
+    #  TOTAL LIABILITIES
     # ======================
     "total_liabilities": [
         "us-gaap:Liabilities",
@@ -446,7 +447,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  STOCKHOLDERS’ EQUITY
+    #   STOCKHOLDERS’ EQUITY
     # ======================
     "total_equity": [
         "us-gaap:StockholdersEquity",
@@ -457,7 +458,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   COMMON STOCK & APIC
+    # COMMON STOCK & APIC
     # ======================
     "common_stock_and_apic": [
         "us-gaap_CommonStocksIncludingAdditionalPaidInCapital",
@@ -467,7 +468,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  TREASURY STOCK
+    #    TREASURY STOCK
     # ======================
     "treasury_stock": [
         "us-gaap_TreasuryStockValue",
@@ -475,7 +476,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    # RETAINED EARNINGS
+    #  RETAINED EARNINGS
     # ======================
     "retained_earnings": [
         "us-gaap_RetainedEarningsAccumulatedDeficit",
@@ -484,7 +485,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   ACCUM. OTHER COMP. INC.
+    #  ACCUM. OTHER COMP. INC.
     # ======================
     "accumulated_oci": [
         "us-gaap_AccumulatedOtherComprehensiveIncomeLossNetOfTax",
@@ -495,7 +496,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  COMPREHENSIVE INCOME
+    # COMPREHENSIVE INCOME
     # ======================
     "comprehensive_income": [
         "us-gaap:ComprehensiveIncomeNetOfTax",
@@ -505,7 +506,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #     CASH FLOW: OCF
+    #   CASH FLOW: OCF
     # ======================
     "cash_flow_operating": [
         "us-gaap:NetCashProvidedByUsedInOperatingActivities",
@@ -515,17 +516,18 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    CASH FLOW: INVEST
+    #  CASH FLOW: INVEST
     # ======================
     "cash_flow_investing": [
         "us-gaap:NetCashProvidedByUsedInInvestingActivities",
         "us-gaap_NetCashProvidedByUsedInInvestingActivities",
         "Cash from/(used in) investing activities",
         "Cash generated by/(used in) investing activities",
+        "NetCashProvidedByUsedInInvestingActivities"
     ],
 
     # ======================
-    #   CASH FLOW: FINANCE
+    #  CASH FLOW: FINANCE
     # ======================
     "cash_flow_financing": [
         "us-gaap:NetCashProvidedByUsedInFinancingActivities",
@@ -535,7 +537,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  SHARE-BASED COMP
+    # SHARE-BASED COMP
     # ======================
     "share_based_compensation": [
         "us-gaap_ShareBasedCompensation",
@@ -546,7 +548,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    DEFERRED TAXES
+    #   DEFERRED TAXES
     # ======================
     "deferred_tax_assets": [
         "us-gaap_DeferredTaxAssetsGross",
@@ -561,7 +563,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #    UNRECOGNIZED TAX
+    #  UNRECOGNIZED TAX
     # ======================
     "unrecognized_tax_benefits": [
         "us-gaap_UnrecognizedTaxBenefits",
@@ -570,7 +572,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #      DIVIDENDS
+    #       DIVIDENDS
     # ======================
     "dividends": [
         "us-gaap_Dividends",
@@ -591,7 +593,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  BUSINESS COMBOS (M&A)
+    #   BUSINESS COMBOS (M&A)
     # ======================
     "business_combinations": [
         "us-gaap_BusinessCombinationsPolicy",
@@ -636,7 +638,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   SEGMENT REPORTING
+    #  SEGMENT REPORTING
     # ======================
     "segment_reporting": [
         "us-gaap_SegmentReportingPolicyPolicyTextBlock",
@@ -668,7 +670,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   RISK FACTORS
+    #     RISK FACTORS
     # ======================
     "risk_factors": [
         # Typically textual items from 10-K “Item 1A”
@@ -678,7 +680,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   INSIDER TRADING
+    #  INSIDER TRADING
     # ======================
     "insider_transactions": [
         "ecd_TrdArrIndName",
@@ -689,7 +691,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #  RECENT ACCOUNTING PRONOUNCEMENTS
+    # RECENT ACCOUNTING PRONOUNCEMENTS
     # ======================
     "recent_accounting_guidance": [
         "us-gaap_NewAccountingPronouncementsPolicyPolicyTextBlock",
@@ -699,7 +701,7 @@ SYNONYMS = {
     ],
 
     # ======================
-    #   Capital expenditures
+    # CAPITAL EXPENDITURES
     # ======================
     "capital_expenditures": [
         # Many companies label it as "Capital expenditures", "Purchase of property, plant and equipment", etc.
@@ -718,12 +720,11 @@ SYNONYMS = {
         "CapEx",
         "Capex",
         "Property, plant and equipment acquisitions",
-        "Capital asset purchases",
         "Purchase of property, plant, and equipment",
     ],
 
     # ======================
-    #   MISCELLANEOUS
+    #      MISCELLANEOUS
     # ======================
     "miscellaneous": [
         "BasisOfAccountingPolicyPolicyTextBlock",
@@ -736,13 +737,13 @@ SYNONYMS = {
     ],
 
     # ======================
-    #       RIGHT-OF-USE ASSETS
+    #   RIGHT-OF-USE ASSETS
     # ======================
     "right_of_use_assets": [
         "ifrs-full:RightOfUseAssets",
         "us-gaap:OperatingLeaseRightOfUseAsset",
         "Right-of-use assets",
-        "Lease assets"
+        "Lease assets",
     ],
 
     # ======================
@@ -752,13 +753,13 @@ SYNONYMS = {
         "ifrs-full:LeaseLiabilitiesCurrent",
         "us-gaap:OperatingLeaseLiabilityCurrent",
         "Lease liabilities, current",
-        "Operating lease liability, current"
+        "Operating lease liability, current",
     ],
     "lease_liabilities_noncurrent": [
         "ifrs-full:LeaseLiabilitiesNoncurrent",
         "us-gaap:OperatingLeaseLiabilityNoncurrent",
         "Lease liabilities, non-current",
-        "Operating lease liability, non-current"
+        "Operating lease liability, non-current",
     ],
 
     # ======================
@@ -768,43 +769,43 @@ SYNONYMS = {
         "ifrs-full:FinancialAssetsAtFairValueThroughProfitOrLoss",
         "us-gaap:MarketableSecuritiesCurrent",
         "Financial assets at fair value through profit or loss",
-        "Financial instruments (FVPL)"
+        "Financial instruments (FVPL)",
     ],
     "financial_assets_fvoci": [
         "ifrs-full:FinancialAssetsAtFairValueThroughOtherComprehensiveIncome",
         "us-gaap:AvailableForSaleSecuritiesCurrent",
         "Financial assets at fair value through other comprehensive income",
-        "Financial instruments (FVOCI)"
+        "Financial instruments (FVOCI)",
     ],
 
     # ======================
-    #     GAINS OR LOSSES IN OCI
+    #   GAINS OR LOSSES IN OCI
     # ======================
     "gains_losses_oci": [
         "ifrs-full:OtherComprehensiveIncome",
         "us-gaap:OtherComprehensiveIncomeLossNetOfTax",
         "Gains or losses in other comprehensive income",
-        "OCI items"
+        "OCI items",
     ],
 
     # ======================
-    #   CONTRACT ASSETS / LIABILITIES
+    # CONTRACT ASSETS / LIABILITIES
     # ======================
     "contract_assets": [
         "ifrs-full:ContractAssets",
         "us-gaap:ContractWithCustomerAsset",
         "Contract assets",
-        "Unbilled receivables"
+        "Unbilled receivables",
     ],
     "contract_liabilities": [
         "ifrs-full:ContractLiabilities",
         "us-gaap:ContractWithCustomerLiability",
         "Deferred income including contract liabilities",
-        "Contract liabilities"
+        "Contract liabilities",
     ],
 
     # ======================
-    #   INTEREST EXPENSES / COVERAGE
+    # INTEREST EXPENSE / COVERAGE
     # ======================
     "interest_expense": [
         "us-gaap:InterestExpense",
@@ -812,9 +813,28 @@ SYNONYMS = {
         "Interest Expense",
         "Finance costs",
         "Interest and debt expense",
-        # IFRS lines:
         "ifrs-full:FinanceCosts",
         "ifrs-full:InterestExpense",
-    ], 
+    ],
+
+    # =====================================================================
+    #           Refined capex fallback logic
+    # =====================================================================
+    "purchase_of_intangibles": [
+        "us-gaap:PaymentsToAcquireIntangibleAssets",
+        "us-gaap_PaymentsToAcquireIntangibleAssets",
+        "Purchase of intangible assets",
+        "Payments to acquire intangible assets",
+        "Additions to intangible assets",
+        "PaymentsToAcquireIntangibleAssets",
+    ],
+    "business_acquisitions_net": [
+        "us-gaap:PaymentsToAcquireBusinessesNetOfCashAcquired",
+        "us-gaap_PaymentsToAcquireBusinessesNetOfCashAcquired",
+        "Acquisitions (net of cash acquired)",
+        "Acquisition of business net of cash acquired",
+        "Purchase of business net of cash acquired",
+        "PaymentsToAcquireBusinessesNetOfCashAcquired",
+    ],
 
 }

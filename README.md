@@ -212,6 +212,25 @@ Below is a select reference for the most commonly used methods. For a deeper or 
 | **`forecasting.ArimaForecastStrategy`**          | Default ARIMA-based strategy that tries ARIMA/SARIMAX model candidates and picks one by AIC.                                                                       | **Custom**: <br/>```python<br/>strategy = ArimaForecastStrategy()<br/>fcst = forecast_revenue(rev_data, strategy=strategy)<br/>```                                                         |
 | **`reporting.ReportingEngine.summarize_metrics_table()`** | Builds a final summary of metrics for all tickers, logs them, and optionally saves to CSV.                                                                         | **Internally** used by `analyze_company()`, though you can call it directly with a valid `metrics_map`.                                                                                      |
 | **`TickerDetector.validate_ticker_symbol()`**     | Regex-based validation of ticker format.                                                                                                                           | Used to filter out invalid tickers (e.g., `@@@`).                                                                                                                                           |
+---
+
+## Refined FCF Computation
+
+Starting with **v0.1.0+**, EDGAR Analytics applies a smarter fallback when a direct **“capital expenditures”** line item is missing from the cash flow statement. Specifically:
+
+1. **Checks for an explicit “capital expenditures” row** (via synonyms).  
+2. **If not found**:  
+   - **Takes the net investing outflow** (if negative).  
+   - **Subtracts** intangible purchases and business acquisitions (when detected).  
+   - The remainder is treated as **approximated “capex.”**  
+
+This helps avoid over-counting large M&A deals or intangible acquisitions as ongoing capital expenditures. You can see this improvement in:
+- `synonyms_utils.compute_capex_single_period` and `compute_capex_for_column`
+- `metrics.py` for single filing snapshots.
+- `multi_period_analysis.py` for multi-quarter data.
+
+**Disclaimer**:  
+Even with these refinements, certain unusual transactions may still appear in overall investing outflows. Thus, the library’s fallback remains an approximation for investor/analyst guidance only.
 
 ---
 
