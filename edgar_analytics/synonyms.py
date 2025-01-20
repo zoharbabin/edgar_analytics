@@ -801,6 +801,20 @@ SYNONYMS = {
         "us-gaap:ContractWithCustomerLiability",
         "Deferred income including contract liabilities",
         "Contract liabilities"
-    ]
+    ],
+
+    # ======================
+    #   INTEREST EXPENSES / COVERAGE
+    # ======================
+    "interest_expense": [
+        "us-gaap:InterestExpense",
+        "us-gaap_InterestExpense",
+        "Interest Expense",
+        "Finance costs",
+        "Interest and debt expense",
+        # IFRS lines:
+        "ifrs-full:FinanceCosts",
+        "ifrs-full:InterestExpense",
+    ], 
 
 }

@@ -46,6 +46,7 @@ def compute_ratios_and_metrics(
     op_exp = find_synonym_value(income_df, SYNONYMS["operating_expenses"], 0.0, "INC->OpEx")
     net_income = find_synonym_value(income_df, SYNONYMS["net_income"], 0.0, "INC->NetIncome")
 
+    # flip negative cost of revenue, Opex if discovered as negative
     cost_rev = flip_sign_if_negative_expense(cost_rev, "cost_of_revenue")
     op_exp = flip_sign_if_negative_expense(op_exp, "operating_expenses")
 
@@ -56,11 +57,12 @@ def compute_ratios_and_metrics(
     metrics["Gross Profit"] = 0.0 if pd.isna(gross_profit) else gross_profit
     metrics["Gross Margin %"] = (gross_profit / revenue * 100.0) if revenue else 0.0
 
+    # Operating Income (approx)
     operating_income_approx = gross_profit - op_exp
-    metrics["Operating Margin %"] = (operating_income_approx / revenue * 100.0) if revenue else 0.0
+    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else 0.0
     metrics["Operating Expenses"] = op_exp
     metrics["Net Income"] = net_income
-    metrics["Net Margin %"] = (net_income / revenue * 100.0) if revenue else 0.0
+    metrics["Net Margin %"] = ((net_income / revenue) * 100.0) if revenue else 0.0
 
     # 2) ---------- BALANCE SHEET ----------
     curr_assets = find_synonym_value(balance_df, SYNONYMS["current_assets"], 0.0, "BS->CurrAssets")
@@ -71,16 +73,18 @@ def compute_ratios_and_metrics(
 
     metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs else 0.0
     metrics["Debt-to-Equity"] = (total_liabs / total_equity) if total_equity else 0.0
-    metrics["Equity Ratio %"] = (total_equity / total_assets * 100.0) if total_assets else 0.0
+    metrics["Equity Ratio %"] = ((total_equity / total_assets) * 100.0) if total_assets else 0.0
 
     # 3) ---------- CASH FLOW ----------
     op_cf = find_synonym_value(cash_df, SYNONYMS["cash_flow_operating"], 0.0, "CF->OpCF")
     capex_val = find_synonym_value(cash_df, SYNONYMS["capital_expenditures"], None, "CF->CapEx")
 
     if capex_val is not None and not pd.isna(capex_val):
+        # If capex is negative, flip it
         if capex_val < 0.0:
             capex_val = abs(capex_val)
     else:
+        # fallback: guess capex from investing CF
         inv_cf = find_synonym_value(cash_df, SYNONYMS["cash_flow_investing"], 0.0, "CF->InvestCF")
         capex_val = min(inv_cf, 0.0) * -1.0
         if capex_val is None:
@@ -98,13 +102,13 @@ def compute_ratios_and_metrics(
     metrics["CostOfRev"] = cost_rev
     metrics["OpEx"] = op_exp
 
-    operating_income_approx = gross_profit - op_exp
+    operating_income_approx = (gross_profit - op_exp)
     metrics["EBIT (approx)"] = operating_income_approx
     metrics["EBITDA (approx)"] = operating_income_approx + dep_amort
 
     # 5) ---------- ROE / ROA ----------
-    metrics["ROE %"] = (net_income / total_equity * 100.0) if total_equity else 0.0
-    metrics["ROA %"] = (net_income / total_assets * 100.0) if total_assets else 0.0
+    metrics["ROE %"] = ((net_income / total_equity) * 100.0) if total_equity else 0.0
+    metrics["ROA %"] = ((net_income / total_assets) * 100.0) if total_assets else 0.0
 
     # 6) ---------- IFRS/GAAP EXPANSIONS ----------
     intangible_val = find_synonym_value(balance_df, SYNONYMS["intangible_assets"], 0.0, "BS->Intangibles")
@@ -131,9 +135,9 @@ def compute_ratios_and_metrics(
     net_debt = gross_debt - cash_equiv_val
     metrics["Net Debt"] = net_debt
 
-    ebitda_val = metrics["EBITDA (approx)"]
-    if ebitda_val != 0:
-        metrics["Net Debt/EBITDA"] = net_debt / ebitda_val
+    ebitda_approx = metrics["EBITDA (approx)"]
+    if ebitda_approx != 0:
+        metrics["Net Debt/EBITDA"] = net_debt / ebitda_approx
     else:
         metrics["Net Debt/EBITDA"] = 0.0
 
@@ -142,7 +146,34 @@ def compute_ratios_and_metrics(
     else:
         metrics["Lease Liabilities Ratio %"] = 0.0
 
-    # 7) ---------- ALERTS ----------
+    # 7) ---------- NEW: INTEREST EXPENSE, INCOME TAX, STANDARD EBIT/EBITDA, INTEREST COVERAGE ----------
+    interest_exp = find_synonym_value(income_df, SYNONYMS["interest_expense"], 0.0, "INC->InterestExpense")
+    interest_exp = flip_sign_if_negative_expense(interest_exp, "interest_expense")
+    metrics["Interest Expense"] = interest_exp
+
+    # We do parse 'income_tax_expense' synonyms in synonyms.py
+    # to get standard EBIT if you want:
+    income_tax_val = find_synonym_value(income_df, SYNONYMS["income_tax_expense"], 0.0, "INC->TaxExpense")
+    # If the reported tax was negative, flip it
+    if income_tax_val < 0.0:
+        income_tax_val = abs(income_tax_val)
+    metrics["Income Tax Expense"] = income_tax_val
+
+    # "Standard" EBIT = Net Income + Interest Expense + Income Tax
+    ebit_standard = net_income + interest_exp + income_tax_val
+    metrics["EBIT (standard)"] = ebit_standard
+
+    # "Standard" EBITDA = EBIT (standard) + Dep/Amort
+    ebitda_standard = ebit_standard + dep_amort
+    metrics["EBITDA (standard)"] = ebitda_standard
+
+    # Interest Coverage => EBIT / Interest Expense
+    if interest_exp != 0.0:
+        metrics["Interest Coverage"] = ebit_standard / interest_exp
+    else:
+        metrics["Interest Coverage"] = 0.0
+
+    # 8) ---------- ALERTS ----------
     alerts = []
     if metrics["Net Margin %"] < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
         alerts.append(f"Net margin below {ALERTS_CONFIG['NEGATIVE_MARGIN']}% (negative)")
@@ -152,10 +183,12 @@ def compute_ratios_and_metrics(
         alerts.append(f"ROE < {ALERTS_CONFIG['LOW_ROE']}%")
     if 0.0 < metrics["ROA %"] < ALERTS_CONFIG["LOW_ROA"]:
         alerts.append(f"ROA < {ALERTS_CONFIG['LOW_ROA']}%")
-
-    # Additional net-debt-based alert:
     if metrics["Net Debt"] > 0 and metrics["Net Debt/EBITDA"] > 3.5:
         alerts.append("Net Debt/EBITDA above 3.5 (heavy leverage).")
+
+    # Optional: interest coverage alert if <2.0
+    if metrics["Interest Coverage"] != 0.0 and metrics["Interest Coverage"] < 2.0:
+        alerts.append("Interest coverage below 2.0 => potential default risk.")
 
     metrics["Alerts"] = alerts
     return metrics

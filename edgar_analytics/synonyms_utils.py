@@ -95,10 +95,10 @@ def normalize_text(s: str) -> str:
 
 def flip_sign_if_negative_expense(value: float, label_key: str) -> float:
     """
-    Flip sign if a known expense is negative. e.g., 'cost_of_revenue' or 'operating_expenses'.
+    Flip sign if a known expense is negative. 
     IFRS or GAAP calls often store these lines as negative amounts.
     """
-    if label_key in ("cost_of_revenue", "operating_expenses", "rnd_expenses"):
+    if label_key in ("cost_of_revenue", "operating_expenses", "rnd_expenses", "interest_expense", "depreciation_amortization"):
         if value < 0.0:
             logger.debug("flip_sign_if_negative_expense: flipping from %.2f to %.2f for %s", value, abs(value), label_key)
             return abs(value)
