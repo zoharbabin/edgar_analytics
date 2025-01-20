@@ -4,6 +4,9 @@ manual_metrics_example.py
 Demonstrates using the lower-level 'metrics' module directly to compute
 financial ratios from your own DataFrame inputs (e.g., from previously
 fetched or offline data). This bypasses the Orchestrator and EDGAR calls.
+
+If your DataFrames contain IFRS-labeled lines, the system will 
+match them automatically if synonyms are present (e.g., "ifrs-full:RightOfUseAssets").
 """
 
 import pandas as pd

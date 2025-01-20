@@ -1,13 +1,12 @@
 """
 orchestrator.py
 
-This module orchestrates the entire EDGAR ticker analysis process. It validates
-tickers, retrieves data, and calls into other modules (e.g., metrics, forecasting,
-multi_period_analysis) to obtain results. It then delegates presentation/reporting
-responsibilities to reporting.py.
+Coordinates the entire EDGAR-based analysis: validating tickers,
+fetching data, computing metrics, multi-year analysis, forecasting,
+and final reporting.
 """
-import re
 
+import re
 import logging
 from typing import Dict, Any, List, Optional
 
@@ -23,49 +22,29 @@ from .multi_period_analysis import (
 )
 from .reporting import ReportingEngine
 
+
 class TickerDetector:
     """
-    Manages detection of valid public company ticker symbols using regex patterns
-    (with class-level regex objects for efficient memory and speed usage).
-
-    This class encapsulates ticker-detection logic:
-      - A search-based pattern to locate ticker-like substrings within larger text.
-      - A full-match pattern to validate if an entire string is a valid ticker.
+    Manages detection/validation of valid public company ticker symbols (regex-based).
+    Allows BFS search for known patterns e.g. 'AAPL', 'BRK.B', 'NGG.L'.
     """
 
-    # Allow exactly 1 to 5 uppercase letters, and at most ONE optional ".XYZ" or "-XYZ" group:
-    _TICKER_REGEX = re.compile(
-        r"\b[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?\b"
-    )
-    _TICKER_FULLMATCH_REGEX = re.compile(
-        r"^[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?$"
-    )
+    _TICKER_REGEX = re.compile(r"\b[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?\b")
+    _TICKER_FULLMATCH_REGEX = re.compile(r"^[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?$")
 
     @classmethod
-    def search(cls, text: str) -> re.Match | None:
+    def search(cls, text: str):
         """
-        Perform a regex search on the given text to find a valid ticker substring.
-
-        :param text: The text string to search.
-        :type text: str
-        :return: A regex Match object if a valid ticker substring is found; otherwise None.
-        :rtype: re.Match or None
-        :raises ValueError: If the provided text is not a string.
+        Find a ticker-like substring in TEXT using _TICKER_REGEX. Return a re.Match or None.
         """
         if not isinstance(text, str):
-            raise ValueError("Input must be a string.")
+            raise ValueError("Input must be a string for TickerDetector.search().")
         return cls._TICKER_REGEX.search(text)
 
     @classmethod
     def validate_ticker_symbol(cls, ticker: str) -> bool:
         """
-        Validate if the entire input string is exactly one valid ticker symbol.
-
-        :param ticker: The string to validate.
-        :type ticker: str
-        :return: True if `ticker` fully matches a valid ticker format; otherwise False.
-        :rtype: bool
-        :raises ValueError: If the provided ticker is not a string.
+        Validate entire string is a valid ticker. 1-5 letters + optional . or - suffix.
         """
         if not isinstance(ticker, str):
             raise ValueError("Ticker must be a string.")
@@ -74,18 +53,14 @@ class TickerDetector:
 
 class TickerOrchestrator:
     """
-    A high-level orchestrator for EDGAR-based financial metrics.
-
-    Responsibilities:
-    - Validate tickers.
-    - Gather data from various modules (annual, quarterly snapshots, multi-year).
-    - Integrate forecasting results.
-    - Collect any alerts.
-    - Delegate final reporting to ReportingEngine.
+    High-level orchestrator for EDGAR analysis:
+      - Validate main ticker + peers
+      - Gather annual & quarterly snapshots
+      - Retrieve multi-year data, run forecasts
+      - Summarize results with ReportingEngine
     """
 
     def __init__(self) -> None:
-        """Initialize the orchestrator with a dedicated logger and reporting engine."""
         self.logger: logging.Logger = get_logger(self.__class__.__name__)
         self.reporting_engine = ReportingEngine()
 
@@ -96,26 +71,13 @@ class TickerOrchestrator:
         csv_path: Optional[str] = None
     ) -> None:
         """
-        Entry point to orchestrate analysis for one main ticker plus a list of peers.
-
-        Parameters
-        ----------
-        ticker : str
-            The primary ticker symbol.
-        peers : List[str]
-            A list of peer ticker symbols for comparison.
-        csv_path : Optional[str]
-            File path to save the CSV summary. If None, no CSV is created.
-
-        Returns
-        -------
-        None
+        Main entry to analyze TICKER plus optional peer tickers. 
+        Summarize results in logs & optional CSV.
         """
         if not TickerDetector.validate_ticker_symbol(ticker):
             self.logger.error("Invalid main ticker: %s", ticker)
             return
 
-        # Setting identity for external EDGAR library
         set_identity("Your Name <your.email@example.com>")
         self.logger.info("Analyzing company: %s", ticker)
 
@@ -131,62 +93,31 @@ class TickerOrchestrator:
             else:
                 self.logger.warning("Skipping invalid peer ticker: %s", peer)
 
-        self.reporting_engine.summarize_metrics_table(
-            metrics_map=metrics_map,
-            main_ticker=ticker,
-            csv_path=csv_path
-        )
-        self.logger.info(
-            "Analysis complete. Refer to logs or the CSV output if provided."
-        )
+        self.reporting_engine.summarize_metrics_table(metrics_map=metrics_map, main_ticker=ticker, csv_path=csv_path)
+        self.logger.info("Analysis complete. Check logs or CSV if provided.")
 
     def _analyze_ticker_for_metrics(self, ticker: str) -> Dict[str, Any]:
         """
-        Retrieve analysis data for a single ticker. This includes:
-          1) Latest 10-K + 10-Q snapshots
-          2) Multi-year data retrieval
-          3) Forecasting (annual & quarterly)
-          4) Additional quarterly-based alerts
-
-        Parameters
-        ----------
-        ticker : str
-            The company's ticker symbol.
-
-        Returns
-        -------
-        Dict[str, Any]
-            A dictionary containing annual_snapshot, quarterly_snapshot,
-            multiyear data, forecasts, and extra_alerts.
+        For a single ticker: gather latest 10-K, 10-Q, multi-year data, forecast, 
+        plus quarterly-based alerts. Return a dictionary of all results.
         """
         self.logger.info("Analyzing ticker: %s", ticker)
-
         try:
             comp = Company(ticker)
         except Exception as exc:
-            self.logger.exception(
-                "Failed to create Company object for %s: %s",
-                ticker, exc
-            )
+            self.logger.exception("Failed to create Company object for %s: %s", ticker, exc)
             return {}
 
-        # Latest snapshots
         annual_snap = get_single_filing_snapshot(comp, "10-K")
         quarterly_snap = get_single_filing_snapshot(comp, "10-Q")
 
-        # Multi-year data & revenue forecasts
         multi_data = retrieve_multi_year_data(ticker, n_years=3, n_quarters=10)
         rev_annual = multi_data.get("annual_data", {}).get("Revenue", {})
         rev_quarterly = multi_data.get("quarterly_data", {}).get("Revenue", {})
 
-        annual_forecast = forecast_revenue_arima(
-            rev_annual, is_quarterly=False
-        )
-        quarterly_forecast = forecast_revenue_arima(
-            rev_quarterly, is_quarterly=True
-        )
+        annual_fc = forecast_revenue_arima(rev_annual, is_quarterly=False)
+        quarterly_fc = forecast_revenue_arima(rev_quarterly, is_quarterly=True)
 
-        # Additional quarterly-based alerts
         quarterly_info = analyze_quarterly_balance_sheets(comp, n_quarters=10)
         extra_alerts = check_additional_alerts_quarterly(quarterly_info)
 
@@ -195,9 +126,8 @@ class TickerOrchestrator:
             "quarterly_snapshot": quarterly_snap,
             "multiyear": multi_data,
             "forecast": {
-                "annual_rev_forecast": annual_forecast,
-                "quarterly_rev_forecast": quarterly_forecast,
+                "annual_rev_forecast": annual_fc,
+                "quarterly_rev_forecast": quarterly_fc,
             },
             "extra_alerts": extra_alerts,
         }
-

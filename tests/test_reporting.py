@@ -116,11 +116,11 @@ def test_summarize_metrics_table_alerts_triggers(dummy_metrics_map):
             format_str = call_args.args[0]
             log_params = call_args.args[1:]
             expanded_message = format_str % log_params
-            if "Alerts for AAPL (snapshot):" in expanded_message:
+            if "Alerts for AAPL:" in expanded_message:
                 found_alert_call = True
 
         assert found_alert_call, (
-            "Expected an alerts call mentioning 'Alerts for AAPL (snapshot)'."
+            "Expected an alerts call mentioning 'Alerts for AAPL'."
         )
 
 

@@ -17,6 +17,8 @@ SYNONYMS = {
         "us-gaap_SalesRevenueNet",
         "us-gaap:Revenues",
         "us-gaap_Revenues",
+        #IFRS
+        "ifrs-full:Revenue",
         # Common textual labels 
         "Revenue", 
         "Revenues",
@@ -299,12 +301,25 @@ SYNONYMS = {
     #     INTANGIBLE ASSETS
     # ======================
     "intangible_assets": [
+        "Intangible assets",
         "us-gaap:IntangibleAssetsNetExcludingGoodwill",
         "us-gaap_IntangibleAssetsNetExcludingGoodwill",
         "FiniteLivedIntangibleAssetsNet",
         "us-gaap_FiniteLivedIntangibleAssetsGross",
         "Intangible assets, net",
         "Acquired intangible assets",
+        "ifrs-full:IntangibleAssets",
+        "us-gaap:IntangibleAssetsNetExcludingGoodwill",
+        "us-gaap:IntangibleAssetsFiniteLivedNet",
+        "us-gaap:IntangibleAssetsIndefiniteLivedExcludingGoodwill",
+        "Identifiable intangible assets",
+        "Customer-related intangible assets",
+        "Technology-based intangible assets",
+        "Intellectual property",
+        "Brand names",
+        "Customer lists",
+        "Patents",
+        "Trademarks",
     ],
 
     # ======================
@@ -719,5 +734,73 @@ SYNONYMS = {
         "srt_CondensedFinancialStatementsTextBlock",
         "us-gaap_SignificantAccountingPoliciesTextBlock",
     ],
+
+    # ======================
+    #       RIGHT-OF-USE ASSETS
+    # ======================
+    "right_of_use_assets": [
+        "ifrs-full:RightOfUseAssets",
+        "us-gaap:OperatingLeaseRightOfUseAsset",
+        "Right-of-use assets",
+        "Lease assets"
+    ],
+
+    # ======================
+    #    LEASE LIABILITIES
+    # ======================
+    "lease_liabilities_current": [
+        "ifrs-full:LeaseLiabilitiesCurrent",
+        "us-gaap:OperatingLeaseLiabilityCurrent",
+        "Lease liabilities, current",
+        "Operating lease liability, current"
+    ],
+    "lease_liabilities_noncurrent": [
+        "ifrs-full:LeaseLiabilitiesNoncurrent",
+        "us-gaap:OperatingLeaseLiabilityNoncurrent",
+        "Lease liabilities, non-current",
+        "Operating lease liability, non-current"
+    ],
+
+    # ======================
+    #  FINANCIAL INSTRUMENTS
+    # ======================
+    "financial_assets_fvpl": [
+        "ifrs-full:FinancialAssetsAtFairValueThroughProfitOrLoss",
+        "us-gaap:MarketableSecuritiesCurrent",
+        "Financial assets at fair value through profit or loss",
+        "Financial instruments (FVPL)"
+    ],
+    "financial_assets_fvoci": [
+        "ifrs-full:FinancialAssetsAtFairValueThroughOtherComprehensiveIncome",
+        "us-gaap:AvailableForSaleSecuritiesCurrent",
+        "Financial assets at fair value through other comprehensive income",
+        "Financial instruments (FVOCI)"
+    ],
+
+    # ======================
+    #     GAINS OR LOSSES IN OCI
+    # ======================
+    "gains_losses_oci": [
+        "ifrs-full:OtherComprehensiveIncome",
+        "us-gaap:OtherComprehensiveIncomeLossNetOfTax",
+        "Gains or losses in other comprehensive income",
+        "OCI items"
+    ],
+
+    # ======================
+    #   CONTRACT ASSETS / LIABILITIES
+    # ======================
+    "contract_assets": [
+        "ifrs-full:ContractAssets",
+        "us-gaap:ContractWithCustomerAsset",
+        "Contract assets",
+        "Unbilled receivables"
+    ],
+    "contract_liabilities": [
+        "ifrs-full:ContractLiabilities",
+        "us-gaap:ContractWithCustomerLiability",
+        "Deferred income including contract liabilities",
+        "Contract liabilities"
+    ]
 
 }

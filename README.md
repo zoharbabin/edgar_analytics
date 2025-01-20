@@ -37,6 +37,12 @@ EDGAR Analytics is a Python library designed to retrieve and parse financial sta
 
 This library is built on top of [edgartools](https://pypi.org/project/edgartools/) (for SEC data retrieval and partial XBRL parsing), as well as popular Python data-science libraries (`pandas`, `numpy`, `statsmodels`).
 
+**IFRS & GAAP Filings**
+
+This library supports **both** U.S. GAAP and IFRS filers, thanks to an expanded set of synonyms for IFRS tags. 
+For foreign private issuers that file IFRS-based statements (e.g., Form 20-F), EDGAR Analytics automatically handles 
+the IFRS-labeled line items (e.g., `ifrs-full:RightOfUseAssets`) under the hood.  
+
 ---
 
 ## Features
