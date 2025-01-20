@@ -89,7 +89,7 @@ pip install edgar-analytics
 2. **Install in Editable Mode (for contributing)**  
 
    ```bash
-   pip install -e .[test]
+   pip install -e ".[test]"
    ```
 
    Make sure you’re in the repo’s root directory (where `setup.py` is located).
