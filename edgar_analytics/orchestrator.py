@@ -14,7 +14,7 @@ from edgar import Company, set_identity
 
 from .data_utils import get_logger
 from .metrics import get_single_filing_snapshot
-from .forecasting import forecast_revenue_arima
+from .forecasting import forecast_revenue
 from .multi_period_analysis import (
     retrieve_multi_year_data,
     analyze_quarterly_balance_sheets,
@@ -26,7 +26,7 @@ from .reporting import ReportingEngine
 class TickerDetector:
     """
     Manages detection/validation of valid public company ticker symbols (regex-based).
-    Allows BFS search for known patterns e.g. 'AAPL', 'BRK.B', 'NGG.L'.
+    Allows BFS search for known patterns e.g., 'AAPL', 'BRK.B', 'NGG.L'.
     """
 
     _TICKER_REGEX = re.compile(r"\b[A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?\b")
@@ -35,7 +35,7 @@ class TickerDetector:
     @classmethod
     def search(cls, text: str):
         """
-        Find a ticker-like substring in TEXT using _TICKER_REGEX. Return a re.Match or None.
+        Find a ticker-like substring in text using _TICKER_REGEX. Return a re.Match or None.
         """
         if not isinstance(text, str):
             raise ValueError("Input must be a string for TickerDetector.search().")
@@ -44,7 +44,7 @@ class TickerDetector:
     @classmethod
     def validate_ticker_symbol(cls, ticker: str) -> bool:
         """
-        Validate entire string is a valid ticker. 1-5 letters + optional . or - suffix.
+        Validate entire string is a valid ticker. 1-5 letters + optional . or - suffix + up to 4 chars.
         """
         if not isinstance(ticker, str):
             raise ValueError("Ticker must be a string.")
@@ -71,7 +71,7 @@ class TickerOrchestrator:
         csv_path: Optional[str] = None
     ) -> None:
         """
-        Main entry to analyze TICKER plus optional peer tickers. 
+        Main entry to analyze TICKER plus optional peer tickers.
         Summarize results in logs & optional CSV.
         """
         if not TickerDetector.validate_ticker_symbol(ticker):
@@ -93,12 +93,16 @@ class TickerOrchestrator:
             else:
                 self.logger.warning("Skipping invalid peer ticker: %s", peer)
 
-        self.reporting_engine.summarize_metrics_table(metrics_map=metrics_map, main_ticker=ticker, csv_path=csv_path)
+        self.reporting_engine.summarize_metrics_table(
+            metrics_map=metrics_map,
+            main_ticker=ticker,
+            csv_path=csv_path
+        )
         self.logger.info("Analysis complete. Check logs or CSV if provided.")
 
     def _analyze_ticker_for_metrics(self, ticker: str) -> Dict[str, Any]:
         """
-        For a single ticker: gather latest 10-K, 10-Q, multi-year data, forecast, 
+        For a single ticker: gather latest 10-K, 10-Q, multi-year data, forecast,
         plus quarterly-based alerts. Return a dictionary of all results.
         """
         self.logger.info("Analyzing ticker: %s", ticker)
@@ -115,8 +119,9 @@ class TickerOrchestrator:
         rev_annual = multi_data.get("annual_data", {}).get("Revenue", {})
         rev_quarterly = multi_data.get("quarterly_data", {}).get("Revenue", {})
 
-        annual_fc = forecast_revenue_arima(rev_annual, is_quarterly=False)
-        quarterly_fc = forecast_revenue_arima(rev_quarterly, is_quarterly=True)
+        # Updated to use forecast_revenue(...) with default ARIMA-based strategy
+        annual_fc = forecast_revenue(rev_annual, is_quarterly=False)
+        quarterly_fc = forecast_revenue(rev_quarterly, is_quarterly=True)
 
         quarterly_info = analyze_quarterly_balance_sheets(comp, n_quarters=10)
         extra_alerts = check_additional_alerts_quarterly(quarterly_info)

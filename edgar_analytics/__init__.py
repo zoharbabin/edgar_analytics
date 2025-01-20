@@ -16,7 +16,7 @@ Modules
 - data_utils: DataFrame and parsing helper functions.
 - synonyms_utils: Utilities for handling synonyms in financial data.
 - metrics: Functions for computing financial ratios and metrics.
-- forecasting: Revenue forecasting using ARIMA/SARIMAX models.
+- forecasting: Revenue forecasting using a strategy-based approach (ARIMA by default).
 - multi_period_analysis: Multi-year and quarterly trend analysis.
 - orchestrator: High-level class orchestrating the entire analysis flow.
 - reporting: Presentation, logging, and CSV export of analysis results.
@@ -25,7 +25,11 @@ Modules
 
 from .synonyms import SYNONYMS
 from .metrics import compute_ratios_and_metrics, get_single_filing_snapshot
-from .forecasting import forecast_revenue_arima
+from .forecasting import (
+    forecast_revenue,
+    ArimaForecastStrategy,
+    ForecastStrategy,
+)
 from .multi_period_analysis import (
     retrieve_multi_year_data,
     analyze_quarterly_balance_sheets,
@@ -45,7 +49,9 @@ __all__ = [
     "SYNONYMS",
     "compute_ratios_and_metrics",
     "get_single_filing_snapshot",
-    "forecast_revenue_arima",
+    "forecast_revenue",
+    "ForecastStrategy",
+    "ArimaForecastStrategy",
     "retrieve_multi_year_data",
     "analyze_quarterly_balance_sheets",
     "check_additional_alerts_quarterly",
