@@ -1,8 +1,9 @@
 # edgar_analytics/synonyms.py
 
 """
-MASTER SYNONYMS DICTIONARY (broad coverage) for mapping diverse
+MASTER SYNONYMS DICTIONARY for mapping diverse
 financial statement labeling to a standardized set of keys.
+Covers US GAAP, IFRS and other free text references for broader coverage.
 """
 
 SYNONYMS = {
@@ -11,17 +12,19 @@ SYNONYMS = {
     #       REVENUE
     # ======================
     "revenue": [
-        # GAAP concepts
+        # US GAAP
         "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
         "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax",
         "us-gaap:SalesRevenueNet",
         "us-gaap_SalesRevenueNet",
         "us-gaap:Revenues",
         "us-gaap_Revenues",
-        #IFRS
+        # IFRS
         "ifrs-full:Revenue",
-        # Common textual labels 
-        "Revenue", 
+        "ifrs-full:RevenueFromSaleOfGoods",
+        "ifrs-full:RevenueFromRenderingOfServices",
+        # Common textual labels
+        "Revenue",
         "Revenues",
         "Net sales",
         "Net Sales",
@@ -37,6 +40,9 @@ SYNONYMS = {
     "gross_profit": [
         "us-gaap:GrossProfit",
         "us-gaap_GrossProfit",
+        # IFRS
+        "ifrs-full:GrossProfit",
+        # Common textual labels
         "Gross Profit",
         "Gross margin",
         "Gross margin, net",
@@ -50,6 +56,9 @@ SYNONYMS = {
         "us-gaap:CostOfGoodsAndServicesSold",
         "us-gaap_CostOfGoodsAndServicesSold",
         "us-gaap_CostOfRevenue",
+        # IFRS
+        "ifrs-full:CostOfSales",
+        # Common textual labels
         "Cost of revenue",
         "Cost of sales",
         "CostOfSalesPolicyTextBlock",
@@ -63,6 +72,10 @@ SYNONYMS = {
     "operating_expenses": [
         "us-gaap:OperatingExpenses",
         "us-gaap_OperatingExpenses",
+        # IFRS
+        "ifrs-full:OperatingExpenses",
+        "ifrs-full:OtherOperatingExpenses",
+        # Common textual labels
         "Operating expenses",
         "Operating expense",
         "Total operating expenses",
@@ -74,6 +87,9 @@ SYNONYMS = {
     "rnd_expenses": [
         "us-gaap:ResearchAndDevelopmentExpense",
         "us-gaap_ResearchAndDevelopmentExpense",
+        # IFRS
+        "ifrs-full:ResearchAndDevelopmentExpense",
+        # Common textual labels
         "R&D",
         "Research and development",
         "ResearchAndDevelopmentExpensePolicy",
@@ -85,6 +101,9 @@ SYNONYMS = {
     "sales_marketing": [
         "us-gaap:SellingAndMarketingExpense",
         "us-gaap_SellingAndMarketingExpense",
+        # IFRS
+        "ifrs-full:SellingExpense",
+        # Common textual labels
         "Selling and marketing",
         "Marketing and advertising",
         "MarketingAndAdvertisingExpense",
@@ -97,6 +116,9 @@ SYNONYMS = {
     "general_administrative": [
         "us-gaap:GeneralAndAdministrativeExpense",
         "us-gaap_GeneralAndAdministrativeExpense",
+        # IFRS
+        "ifrs-full:AdministrativeExpense",
+        # Common textual labels
         "General and administrative",
         "SGA",
         "Selling, general and administrative",
@@ -108,6 +130,9 @@ SYNONYMS = {
     "operating_income": [
         "us-gaap:OperatingIncomeLoss",
         "us-gaap_OperatingIncomeLoss",
+        # IFRS
+        "ifrs-full:OperatingProfitLoss",
+        # Common textual labels
         "Operating income",
         "Operating profit",
     ],
@@ -118,6 +143,10 @@ SYNONYMS = {
     "other_income_expense": [
         "us-gaap:NonoperatingIncomeExpense",
         "us-gaap_NonoperatingIncomeExpense",
+        # IFRS (often "finance income/expense" or "other income/expense")
+        "ifrs-full:OtherOperatingIncome",
+        "ifrs-full:FinanceIncome",
+        # Common textual labels
         "Other income/(expense), net",
         "Non-operating income/(expense)",
         "OtherNonoperatingIncomeExpense",
@@ -129,6 +158,9 @@ SYNONYMS = {
     "income_before_taxes": [
         "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
         "us-gaap_IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+        # IFRS
+        "ifrs-full:ProfitLossBeforeTax",
+        # Common textual labels
         "Income before provision for income taxes",
         "Pretax income",
     ],
@@ -139,9 +171,11 @@ SYNONYMS = {
     "income_tax_expense": [
         "us-gaap:IncomeTaxExpenseBenefit",
         "us-gaap_IncomeTaxExpenseBenefit",
+        # IFRS
+        "ifrs-full:IncomeTaxExpense",
+        # Common textual labels
         "Provision for income taxes",
         "Tax expense",
-        # Detailed lines
         "Current income tax expense",
         "Deferred income tax expense",
     ],
@@ -152,6 +186,7 @@ SYNONYMS = {
     "depreciation_amortization": [
         "us-gaap:DepreciationDepletionAndAmortization",
         "us-gaap_DepreciationDepletionAndAmortization",
+        # Common textual labels
         "Depreciation and amortization",
         "Depreciation & Amortization",
         "Depreciation expense",
@@ -166,6 +201,7 @@ SYNONYMS = {
     "depreciation_in_cost_of_sales": [
         "us-gaap:DepreciationAmortizationInCostOfGoodsSold",
         "us-gaap_DepreciationAmortizationInCostOfGoodsSold",
+        # Common textual labels
         "Depreciation in cost of sales",
         "Depreciation included in cost of sales",
         "Depreciation (in cost of sales)",
@@ -178,6 +214,9 @@ SYNONYMS = {
     "net_income": [
         "us-gaap:NetIncomeLoss",
         "us-gaap_NetIncomeLoss",
+        # IFRS
+        "ifrs-full:ProfitLoss",
+        # Common textual labels
         "Net Income",
         "Net Earnings",
         "Income (loss) from continuing operations",
@@ -190,11 +229,17 @@ SYNONYMS = {
     "earnings_per_share_basic": [
         "us-gaap:EarningsPerShareBasic",
         "us-gaap_EarningsPerShareBasic",
+        # IFRS
+        "ifrs-full:BasicEarningsLossPerShare",
+        # Common textual
         "Basic EPS",
     ],
     "earnings_per_share_diluted": [
         "us-gaap:EarningsPerShareDiluted",
         "us-gaap_EarningsPerShareDiluted",
+        # IFRS
+        "ifrs-full:DilutedEarningsLossPerShare",
+        # Common textual
         "Diluted EPS",
     ],
 
@@ -204,6 +249,9 @@ SYNONYMS = {
     "common_shares_outstanding": [
         "dei_EntityCommonStockSharesOutstanding",
         "us-gaap_CommonStockSharesOutstanding",
+        # IFRS
+        "ifrs-full:IssuedCapitalNumberOfShares",
+        # Common textual
         "Common Stock, shares outstanding",
         "Shares outstanding",
         "SharesIssued",
@@ -215,6 +263,9 @@ SYNONYMS = {
     "cash_equivalents": [
         "us-gaap:CashAndCashEquivalentsAtCarryingValue",
         "us-gaap_CashAndCashEquivalentsAtCarryingValue",
+        # IFRS
+        "ifrs-full:CashAndCashEquivalents",
+        # Common textual
         "Cash and cash equivalents",
         "CashCashEquivalentsAndShortTermInvestments",
         "Cash, cash equivalents, restricted",
@@ -226,6 +277,9 @@ SYNONYMS = {
     "short_term_investments": [
         "us-gaap_AvailableForSaleSecuritiesDebtSecuritiesCurrent",
         "us-gaap_MarketableSecuritiesCurrent",
+        # IFRS
+        "ifrs-full:FinancialAssetsCurrent",
+        # Common textual
         "ST investments",
         "Marketable securities, current",
         "Short-term investments",
@@ -237,6 +291,9 @@ SYNONYMS = {
     "accounts_receivable": [
         "us-gaap:AccountsReceivableNetCurrent",
         "us-gaap_AccountsReceivableNetCurrent",
+        # IFRS
+        "ifrs-full:TradeAndOtherReceivables",
+        # Common textual
         "Accounts receivable",
         "Accounts receivable, net",
         "Receivables",
@@ -248,6 +305,9 @@ SYNONYMS = {
     "inventory": [
         "us-gaap:InventoryNet",
         "us-gaap_InventoryNet",
+        # IFRS
+        "ifrs-full:Inventories",
+        # Common textual
         "Inventories",
         "Inventory, net",
         "Inventory",
@@ -263,6 +323,9 @@ SYNONYMS = {
     "other_current_assets": [
         "us-gaap_OtherAssetsCurrent",
         "us-gaap_PrepaidExpenseAndOtherAssetsCurrent",
+        # IFRS
+        "ifrs-full:OtherCurrentAssets",
+        # Common textual
         "Prepaid expenses and other current assets",
         "Other current assets",
     ],
@@ -273,6 +336,9 @@ SYNONYMS = {
     "current_assets": [
         "us-gaap:AssetsCurrent",
         "us-gaap_AssetsCurrent",
+        # IFRS
+        "ifrs-full:CurrentAssets",
+        # Common textual
         "Total current assets",
         "Assets, current",
     ],
@@ -283,6 +349,9 @@ SYNONYMS = {
     "long_term_investments": [
         "us-gaap_LongTermInvestments",
         "us-gaap_MarketableSecuritiesNoncurrent",
+        # IFRS
+        "ifrs-full:NoncurrentFinancialAssets",
+        # Common textual
         "Marketable securities, noncurrent",
         "Equity and other investments",
     ],
@@ -293,6 +362,9 @@ SYNONYMS = {
     "ppe_net": [
         "us-gaap:PropertyPlantAndEquipmentNet",
         "us-gaap_PropertyPlantAndEquipmentNet",
+        # IFRS
+        "ifrs-full:PropertyPlantAndEquipment",
+        # Common textual
         "Property, plant and equipment, net",
         "Property and equipment, net",
         "PPE net",
@@ -309,11 +381,9 @@ SYNONYMS = {
         "us-gaap_FiniteLivedIntangibleAssetsGross",
         "Intangible assets, net",
         "Acquired intangible assets",
+        # IFRS
         "ifrs-full:IntangibleAssets",
-        "us-gaap:IntangibleAssetsNetExcludingGoodwill",
-        "us-gaap:IntangibleAssetsFiniteLivedNet",
-        "us-gaap:IntangibleAssetsIndefiniteLivedExcludingGoodwill",
-        "Identifiable intangible assets",
+        # Common textual
         "Customer-related intangible assets",
         "Technology-based intangible assets",
         "Intellectual property",
@@ -321,6 +391,9 @@ SYNONYMS = {
         "Customer lists",
         "Patents",
         "Trademarks",
+        "us-gaap:IntangibleAssetsFiniteLivedNet",
+        "us-gaap:IntangibleAssetsIndefiniteLivedExcludingGoodwill",
+        "Identifiable intangible assets",
     ],
 
     # ======================
@@ -329,6 +402,9 @@ SYNONYMS = {
     "goodwill": [
         "us-gaap:Goodwill",
         "us-gaap_Goodwill",
+        # IFRS
+        "ifrs-full:Goodwill",
+        # Common textual
         "Goodwill",
     ],
 
@@ -338,6 +414,9 @@ SYNONYMS = {
     "other_noncurrent_assets": [
         "us-gaap:AssetsNoncurrent",
         "us-gaap_AssetsNoncurrent",
+        # IFRS
+        "ifrs-full:NoncurrentAssets",
+        # Common textual
         "Total non-current assets",
         "Other non-current assets",
         "Long-lived assets",
@@ -349,6 +428,9 @@ SYNONYMS = {
     "total_assets": [
         "us-gaap:Assets",
         "us-gaap_Assets",
+        # IFRS
+        "ifrs-full:Assets",
+        # Common textual
         "Total assets",
     ],
 
@@ -358,6 +440,9 @@ SYNONYMS = {
     "accounts_payable": [
         "us-gaap:AccountsPayableCurrent",
         "us-gaap_AccountsPayableCurrent",
+        # IFRS
+        "ifrs-full:TradeAndOtherPayables",
+        # Common textual
         "Accounts payable",
         "AP",
         "Trade payables",
@@ -369,6 +454,9 @@ SYNONYMS = {
     "accrued_expenses": [
         "us-gaap_AccruedLiabilitiesCurrent",
         "us-gaap_AccruedExpenses",
+        # IFRS
+        "ifrs-full:AccrualsAndDeferredIncome",
+        # Common textual
         "Accrued expenses",
         "Other accrued liabilities",
     ],
@@ -379,6 +467,9 @@ SYNONYMS = {
     "current_liabilities": [
         "us-gaap:LiabilitiesCurrent",
         "us-gaap_LiabilitiesCurrent",
+        # IFRS
+        "ifrs-full:CurrentLiabilities",
+        # Common textual
         "Total current liabilities",
         "Liabilities, current",
     ],
@@ -389,6 +480,9 @@ SYNONYMS = {
     "deferred_revenue": [
         "us-gaap:ContractWithCustomerLiabilityCurrent",
         "us-gaap_ContractWithCustomerLiabilityCurrent",
+        # IFRS (see also "contract_liabilities" below)
+        "ifrs-full:ContractLiabilitiesCurrent",
+        # Common textual
         "Deferred revenue",
         "Unearned revenue",
         "Contract liability",
@@ -401,6 +495,9 @@ SYNONYMS = {
         "us-gaap_CommercialPaper",
         "Commercial paper",
         "LineOfCreditFacility",
+        # IFRS
+        "ifrs-full:BorrowingsCurrent",
+        # Common textual
         "Short-term debt",
     ],
 
@@ -410,6 +507,9 @@ SYNONYMS = {
     "long_term_debt": [
         "us-gaap:LongTermDebt",
         "us-gaap_LongTermDebt",
+        # IFRS
+        "ifrs-full:BorrowingsNoncurrent",
+        # Common textual
         "Term debt",
         "Notes payable",
         "Bond obligations",
@@ -420,6 +520,7 @@ SYNONYMS = {
     # ======================
     "operating_lease_liabilities": [
         "us-gaap_OperatingLeaseLiability",
+        # IFRS has broader "ifrs-full:LeaseLiabilities"
         "Operating lease liabilities",
     ],
     "finance_lease_liabilities": [
@@ -433,6 +534,9 @@ SYNONYMS = {
     "other_noncurrent_liabilities": [
         "us-gaap_LiabilitiesNoncurrent",
         "us-gaap_OtherLiabilitiesNoncurrent",
+        # IFRS
+        "ifrs-full:NoncurrentLiabilities",
+        # Common textual
         "Other non-current liabilities",
         "Total non-current liabilities",
     ],
@@ -443,6 +547,9 @@ SYNONYMS = {
     "total_liabilities": [
         "us-gaap:Liabilities",
         "us-gaap_Liabilities",
+        # IFRS
+        "ifrs-full:Liabilities",
+        # Common textual
         "Total liabilities",
     ],
 
@@ -452,6 +559,9 @@ SYNONYMS = {
     "total_equity": [
         "us-gaap:StockholdersEquity",
         "us-gaap_StockholdersEquity",
+        # IFRS
+        "ifrs-full:Equity",
+        # Common textual
         "Total shareholders’ equity",
         "Equity",
         "Shareholders' equity",
@@ -463,6 +573,10 @@ SYNONYMS = {
     "common_stock_and_apic": [
         "us-gaap_CommonStocksIncludingAdditionalPaidInCapital",
         "us-gaap_AdditionalPaidInCapital",
+        # IFRS
+        "ifrs-full:ShareCapital",
+        "ifrs-full:SharePremium",
+        # Common textual
         "Common stock and additional paid-in capital",
         "Additional paid-in capital",
     ],
@@ -472,6 +586,9 @@ SYNONYMS = {
     # ======================
     "treasury_stock": [
         "us-gaap_TreasuryStockValue",
+        # IFRS
+        "ifrs-full:TreasuryShares",
+        # Common textual
         "Treasury stock",
     ],
 
@@ -480,6 +597,9 @@ SYNONYMS = {
     # ======================
     "retained_earnings": [
         "us-gaap_RetainedEarningsAccumulatedDeficit",
+        # IFRS
+        "ifrs-full:RetainedEarnings",
+        # Common textual
         "Retained earnings",
         "Accumulated deficit",
     ],
@@ -490,6 +610,9 @@ SYNONYMS = {
     "accumulated_oci": [
         "us-gaap_AccumulatedOtherComprehensiveIncomeLossNetOfTax",
         "us-gaap_OtherComprehensiveIncomeLossNetOfTax",
+        # IFRS
+        "ifrs-full:OtherReserves",
+        # Common textual
         "Accumulated other comprehensive loss",
         "AOCI",
         "Other comprehensive income/loss",
@@ -501,6 +624,9 @@ SYNONYMS = {
     "comprehensive_income": [
         "us-gaap:ComprehensiveIncomeNetOfTax",
         "us-gaap_ComprehensiveIncomeNetOfTax",
+        # IFRS
+        "ifrs-full:ComprehensiveIncome",
+        # Common textual
         "Total comprehensive income",
         "Other comprehensive income, net of tax",
     ],
@@ -511,6 +637,9 @@ SYNONYMS = {
     "cash_flow_operating": [
         "us-gaap:NetCashProvidedByUsedInOperatingActivities",
         "us-gaap_NetCashProvidedByUsedInOperatingActivities",
+        # IFRS
+        "ifrs-full:NetCashFlowsFromUsedInOperatingActivities",
+        # Common textual
         "Cash from/(used in) operating activities",
         "Cash generated by operating activities",
     ],
@@ -521,9 +650,12 @@ SYNONYMS = {
     "cash_flow_investing": [
         "us-gaap:NetCashProvidedByUsedInInvestingActivities",
         "us-gaap_NetCashProvidedByUsedInInvestingActivities",
+        # IFRS
+        "ifrs-full:NetCashFlowsFromUsedInInvestingActivities",
+        # Common textual
         "Cash from/(used in) investing activities",
         "Cash generated by/(used in) investing activities",
-        "NetCashProvidedByUsedInInvestingActivities"
+        "NetCashProvidedByUsedInInvestingActivities",
     ],
 
     # ======================
@@ -532,6 +664,9 @@ SYNONYMS = {
     "cash_flow_financing": [
         "us-gaap:NetCashProvidedByUsedInFinancingActivities",
         "us-gaap_NetCashProvidedByUsedInFinancingActivities",
+        # IFRS
+        "ifrs-full:NetCashFlowsFromUsedInFinancingActivities",
+        # Common textual
         "Cash from/(used in) financing activities",
         "Cash used in financing activities",
     ],
@@ -542,6 +677,9 @@ SYNONYMS = {
     "share_based_compensation": [
         "us-gaap_ShareBasedCompensation",
         "us-gaap_AllocatedShareBasedCompensationExpense",
+        # IFRS
+        "ifrs-full:ShareBasedPayment",
+        # Common textual
         "Stock-based compensation expense",
         "Share-based compensation",
         "Equity compensation",
@@ -553,12 +691,18 @@ SYNONYMS = {
     "deferred_tax_assets": [
         "us-gaap_DeferredTaxAssetsGross",
         "us-gaap_DeferredTaxAssetsNet",
+        # IFRS
+        "ifrs-full:DeferredTaxAssets",
+        # Common textual
         "Deferred tax assets",
         "DTA",
     ],
     "deferred_tax_liabilities": [
         "us-gaap_DeferredTaxLiabilities",
         "us-gaap_DeferredTaxLiabilitiesNet",
+        # IFRS
+        "ifrs-full:DeferredTaxLiabilities",
+        # Common textual
         "DTL",
     ],
 
@@ -577,6 +721,9 @@ SYNONYMS = {
     "dividends": [
         "us-gaap_Dividends",
         "us-gaap_CommonStockDividendsPerShareDeclared",
+        # IFRS
+        "ifrs-full:DividendsPaid",
+        # Common textual
         "Dividends",
         "Dividends declared",
         "PaymentsOfDividends",
@@ -588,6 +735,9 @@ SYNONYMS = {
     "share_repurchase": [
         "us-gaap_PaymentsForRepurchaseOfCommonStock",
         "us-gaap_StockRepurchasedAndRetiredDuringPeriodShares",
+        # IFRS
+        "ifrs-full:PaymentsForRepurchaseOfEquityInstruments",
+        # Common textual
         "Repurchases of common stock",
         "Stock repurchased and retired",
     ],
@@ -598,6 +748,9 @@ SYNONYMS = {
     "business_combinations": [
         "us-gaap_BusinessCombinationsPolicy",
         "us-gaap_BusinessCombinationDisclosureTextBlock",
+        # IFRS
+        "ifrs-full:BusinessCombinations",
+        # Common textual
         "Business combinations",
         "AcquisitionsNetOfCashAcquiredAndPurchasesOfIntangibleAndOtherAssets",
         "Merger or acquisition references (in textual sections)",
@@ -612,6 +765,9 @@ SYNONYMS = {
         "OperatingLeaseLiabilityPaymentsDue",
         "FinanceLeaseLiabilityPaymentsDue",
         "us-gaap_LeaseCostTableTextBlock",
+        # IFRS
+        "ifrs-full:Leases",
+        # Common textual
         "Leases (general disclosures)",
     ],
 
@@ -621,6 +777,9 @@ SYNONYMS = {
     "derivatives_hedging": [
         "us-gaap_DerivativeInstrumentsAndHedgingActivitiesDisclosureTextBlock",
         "us-gaap_DerivativeAssetFairValueGrossAssetIncludingNotSubjectToMasterNettingArrangement",
+        # IFRS
+        "ifrs-full:DerivativeFinancialInstruments",
+        # Common textual
         "Derivative instruments",
         "Hedging instruments",
         "Cash flow hedges",
@@ -634,6 +793,9 @@ SYNONYMS = {
     "fair_value": [
         "us-gaap_FairValueMeasurementPolicyPolicyTextBlock",
         "us-gaap_FairValueDisclosuresTextBlock",
+        # IFRS
+        "ifrs-full:FairValueMeasurement",
+        # Common textual
         "Fair Value Measurements",
     ],
 
@@ -643,6 +805,9 @@ SYNONYMS = {
     "segment_reporting": [
         "us-gaap_SegmentReportingPolicyPolicyTextBlock",
         "us-gaap_SegmentReportingDisclosureTextBlock",
+        # IFRS
+        "ifrs-full:SegmentReporting",
+        # Common textual
         "Segment revenue",
         "Segment operating income",
     ],
@@ -653,6 +818,9 @@ SYNONYMS = {
     "commitments_contingencies": [
         "us-gaap_CommitmentsAndContingencies",
         "us-gaap_CommitmentsAndContingenciesDisclosureTextBlock",
+        # IFRS
+        "ifrs-full:ContingentLiabilities",
+        # Common textual
         "Contingencies",
         "Litigation, claims",
         "Purchase obligations",
@@ -673,7 +841,6 @@ SYNONYMS = {
     #     RISK FACTORS
     # ======================
     "risk_factors": [
-        # Typically textual items from 10-K “Item 1A”
         "Risk Factors",
         "Item 1A. Risk Factors",
         "Business risk, M&A risk, supply chain risk, etc.",
@@ -696,6 +863,9 @@ SYNONYMS = {
     "recent_accounting_guidance": [
         "us-gaap_NewAccountingPronouncementsPolicyPolicyTextBlock",
         "kltr_RecentAccountingGuidanceNotYetAdoptedPolicyTextBlock",
+        # IFRS
+        "ifrs-full:StandardsIssuedButNotYetEffective",
+        # Common textual
         "Recent accounting guidance",
         "Pronouncements not yet adopted",
     ],
@@ -704,9 +874,11 @@ SYNONYMS = {
     # CAPITAL EXPENDITURES
     # ======================
     "capital_expenditures": [
-        # Many companies label it as "Capital expenditures", "Purchase of property, plant and equipment", etc.
         "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
         "us-gaap_PaymentsToAcquirePropertyPlantAndEquipment",
+        # IFRS
+        "ifrs-full:AcquisitionsOfPropertyPlantAndEquipment",
+        # Common textual
         "Capital expenditures",
         "Purchase of PP&E",
         "Purchase of fixed assets",
@@ -721,19 +893,6 @@ SYNONYMS = {
         "Capex",
         "Property, plant and equipment acquisitions",
         "Purchase of property, plant, and equipment",
-    ],
-
-    # ======================
-    #      MISCELLANEOUS
-    # ======================
-    "miscellaneous": [
-        "BasisOfAccountingPolicyPolicyTextBlock",
-        "BasisOfPresentationAndSignificantAccountingPoliciesTextBlock",
-        "ConsolidationPolicyTextBlock",
-        "ForeignCurrencyTransactionsAndTranslationsPolicyTextBlock",
-        "NatureOfOperationsPolicyPolicyTextBlock",
-        "srt_CondensedFinancialStatementsTextBlock",
-        "us-gaap_SignificantAccountingPoliciesTextBlock",
     ],
 
     # ======================
@@ -810,19 +969,22 @@ SYNONYMS = {
     "interest_expense": [
         "us-gaap:InterestExpense",
         "us-gaap_InterestExpense",
+        "ifrs-full:FinanceCosts",
+        "ifrs-full:InterestExpense",
         "Interest Expense",
         "Finance costs",
         "Interest and debt expense",
-        "ifrs-full:FinanceCosts",
-        "ifrs-full:InterestExpense",
     ],
 
-    # =====================================================================
-    #           Refined capex fallback logic
-    # =====================================================================
+    # ======================
+    #   REFINED CAPEX-RELATED
+    # ======================
     "purchase_of_intangibles": [
         "us-gaap:PaymentsToAcquireIntangibleAssets",
         "us-gaap_PaymentsToAcquireIntangibleAssets",
+        # IFRS
+        "ifrs-full:AcquisitionsOfIntangibleAssets",
+        # Common textual
         "Purchase of intangible assets",
         "Payments to acquire intangible assets",
         "Additions to intangible assets",
@@ -831,10 +993,28 @@ SYNONYMS = {
     "business_acquisitions_net": [
         "us-gaap:PaymentsToAcquireBusinessesNetOfCashAcquired",
         "us-gaap_PaymentsToAcquireBusinessesNetOfCashAcquired",
+        # IFRS
+        "ifrs-full:BusinessCombinationsNetOfCashAcquired",
+        # Common textual
         "Acquisitions (net of cash acquired)",
         "Acquisition of business net of cash acquired",
         "Purchase of business net of cash acquired",
         "PaymentsToAcquireBusinessesNetOfCashAcquired",
+    ],
+
+    # ======================
+    #      MISCELLANEOUS
+    # ======================
+    "miscellaneous": [
+        "BasisOfAccountingPolicyPolicyTextBlock",
+        "BasisOfPresentationAndSignificantAccountingPoliciesTextBlock",
+        "ConsolidationPolicyTextBlock",
+        "ForeignCurrencyTransactionsAndTranslationsPolicyTextBlock",
+        "NatureOfOperationsPolicyPolicyTextBlock",
+        "srt_CondensedFinancialStatementsTextBlock",
+        "us-gaap_SignificantAccountingPoliciesTextBlock",
+        # IFRS (example of general info)
+        "ifrs-full:GeneralInformationAboutFinancialStatements",
     ],
 
 }
