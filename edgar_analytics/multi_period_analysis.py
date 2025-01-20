@@ -5,7 +5,6 @@ import pandas as pd
 
 from edgar import Company, MultiFinancials
 from .logging_utils import get_logger
-from .synonyms_utils import find_synonym_value
 from .synonyms import SYNONYMS
 from .data_utils import (
     parse_period_label,

@@ -7,7 +7,7 @@ ReportingEngine tests have been moved to test_reporting.py.
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 from edgar_analytics.orchestrator import TickerOrchestrator, TickerDetector
@@ -86,6 +86,10 @@ def test_analyze_company_invalid_peer(caplog):
     """
     Invalid peer scenario: should log a warning and skip that peer.
     """
+    with patch("edgar_analytics.orchestrator.Company") as mock_company:
+        # Return some trivial mock so 'AAPL' doesn't do a real fetch
+        mock_company.return_value = MagicMock()
+
     orchestrator = TickerOrchestrator()
     orchestrator.analyze_company("AAPL", peers=["@@@", "MSFT"])
 

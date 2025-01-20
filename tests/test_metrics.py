@@ -1,3 +1,4 @@
+# tests/test_metrics.py
 """
 tests/test_metrics.py
 
@@ -13,8 +14,11 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock
 
-from edgar_analytics.metrics import compute_ratios_and_metrics
-from edgar_analytics.metrics import get_single_filing_snapshot, get_filing_info
+from edgar_analytics.metrics import (
+    compute_ratios_and_metrics,
+    get_single_filing_snapshot,
+    get_filing_info,
+)
 
 @pytest.fixture
 def sample_balance_df():
@@ -110,42 +114,33 @@ def test_compute_ratios_and_metrics_basic(
         cash_df=sample_cash_df,
     )
 
-    # Check basic extracted fields
+    # Basic fields
     assert "Revenue" in metrics
-    assert metrics["Revenue"] == 1500  # from "Net sales"
+    assert metrics["Revenue"] == 1500, "Revenue should match Net sales=1500"
 
-    # cost_of_sales is -700 in the DF -> if synonyms logic flips it, it should become +700
-    if "CostOfRev" in metrics:
-        assert metrics["CostOfRev"] == 700, (
-            "cost_of_revenue should be flipped to positive."
-        )
+    # cost_of_sales is -700 => flipped to +700 => stored in "CostOfRev"
+    assert "CostOfRev" in metrics, "We expect a 'CostOfRev' key from the new code"
+    assert metrics["CostOfRev"] == 700, "cost_of_revenue should be flipped to positive"
 
-    # Operating expenses are -400 in DF -> flipped to +400 if synonyms logic applies
-    if "OpEx" in metrics:
-        assert metrics["OpEx"] == 400, (
-            "operating_expenses should be flipped to positive."
-        )
+    # Operating expenses are -400 => flipped to +400 => stored in "OpEx"
+    assert "OpEx" in metrics
+    assert metrics["OpEx"] == 400, "operating_expenses should be flipped to positive"
 
     # Net Income
-    assert "Net Income" in metrics, "Should have net income"
-    assert metrics["Net Income"] == 300, "Net income should match DF (300)"
+    assert "Net Income" in metrics
+    assert metrics["Net Income"] == 300
 
-    # Current ratio: 1000 / 700 = ~1.42857
-    if "Current Ratio" in metrics:
-        assert metrics["Current Ratio"] == pytest.approx(1000 / 700, 0.001)
+    # Check basic balance ratios
+    assert metrics["Current Ratio"] == pytest.approx(1000 / 700, 0.001)
+    assert metrics["Debt-to-Equity"] == pytest.approx(1.0, 0.001)  # 1000 / 1000
 
-    # Debt-to-Equity: 1000 / 1000 = 1.0
-    if "Debt-to-Equity" in metrics:
-        assert metrics["Debt-to-Equity"] == pytest.approx(1.0, 0.001)
+    # Check Operating CF => 1000, CapEx => 200 => Free CF => 800
+    assert metrics["Cash from Operations"] == 1000
+    assert metrics["Free Cash Flow"] == 800
 
-    # Check operating CF
-    if "Cash from Operations" in metrics:
-        assert metrics["Cash from Operations"] == 1000
-
-    # If synonyms logic flips CapEx:
-    if "Free Cash Flow" in metrics:
-        # free_cf = op_cf - capex_val => 1000 - 200 => 800 if capex is 200
-        pass
+    # Check EBIT & EBITDA approx
+    assert "EBIT (approx)" in metrics
+    assert "EBITDA (approx)" in metrics
 
 
 def test_compute_ratios_and_metrics_missing_rows():
@@ -169,15 +164,11 @@ def test_compute_ratios_and_metrics_missing_rows():
 
     metrics = compute_ratios_and_metrics(balance_df, income_df, cash_df)
 
-    # We only have partial data: net sales=2000, no cost_of_revenue, no net_income
-    assert metrics["Revenue"] == 2000, (
-        "Should pick up net sales even if partial"
-    )
-    # Possibly cost_of_revenue or NetIncome won't exist or is zero/fallback
-    if "NetIncome" in metrics:
-        assert metrics["NetIncome"] == 0.0 or metrics["NetIncome"] is None, (
-            "Should fallback or not exist if row is missing"
-        )
+    # We only have partial data: net sales=2000
+    assert metrics["Revenue"] == 2000
+    # Possibly cost_of_revenue, NetIncome => 0 if missing
+    assert metrics["Net Income"] == 0.0, "Should default to 0.0 if net_income row missing"
+    assert metrics["CostOfRev"] == 0.0, "No row => fallback=0 => no sign flip needed"
 
 
 def test_compute_ratios_and_metrics_sign_flips():
@@ -206,16 +197,14 @@ def test_compute_ratios_and_metrics_sign_flips():
 
     metrics = compute_ratios_and_metrics(bal_df, inc_df, cash_df)
 
-    # cost_of_sales -> +500
-    if "CostOfRev" in metrics:
-        assert metrics["CostOfRev"] == 500
-    # operating_expenses -> +200
-    if "OpEx" in metrics:
-        assert metrics["OpEx"] == 200
-    # CapEx -> +100 if synonyms logic flips it
-    if "Free Cash Flow" in metrics:
-        # If OpCF is 0, free CF might be (0 - 100) => -100
-        pass
+    # Check flips
+    assert metrics["CostOfRev"] == 500, "Should flip negative cost_of_sales to 500"
+    assert metrics["OpEx"] == 200, "Should flip negative operating_expenses to 200"
+    # If no op_cf => 0, then free CF => -100 if flipping CapEx to +100
+    # But let's ensure code doesn't break
+    assert metrics["Free Cash Flow"] == -100, (
+        "With 0 operating CF and +100 CapEx => free CF = 0 - 100 = -100"
+    )
 
 
 def test_compute_ratios_and_metrics_all_zero():
@@ -252,15 +241,14 @@ def test_compute_ratios_and_metrics_all_zero():
 
     metrics = compute_ratios_and_metrics(balance_df, income_df, cash_df)
 
+    assert isinstance(metrics, dict)
     # Basic checks
-    assert isinstance(metrics, dict), (
-        "Should return a dictionary even with all zeros"
-    )
-    assert "Revenue" in metrics
     assert metrics["Revenue"] == 0
-    # Possibly net income, cost_of_revenue, etc. all zero
-    if "Net Income" in metrics:
-        assert metrics["Net Income"] == 0
+    assert metrics["Net Income"] == 0
+    assert metrics["CostOfRev"] == 0
+    assert metrics["OpEx"] == 0
+    assert metrics["Free Cash Flow"] == 0
+
 
 def test_get_single_filing_snapshot_no_financials():
     mock_filing = MagicMock()
@@ -277,6 +265,7 @@ def test_get_single_filing_snapshot_no_financials():
     assert snap["metrics"]["Revenue"] == 0.0
     assert snap["filing_info"]["form_type"] == "10-K"
 
+
 def test_get_single_filing_snapshot_no_filing():
     mock_company = MagicMock()
     # means no 10-K found
@@ -284,6 +273,7 @@ def test_get_single_filing_snapshot_no_filing():
 
     snap = get_single_filing_snapshot(mock_company, "10-K")
     assert snap["metrics"] == {}
+
 
 def test_get_filing_info_missing_attributes():
     # Test if any attribute might be None or missing
@@ -296,36 +286,33 @@ def test_get_filing_info_missing_attributes():
     assert info["form_type"] == "Unknown"
     assert info["filed_date"] == "Unknown"
 
+
 def test_no_capex_fallback_to_investing():
     """
     If there's no row matching 'capital_expenditures', the code should fallback
     to the 'cash_flow_investing' row to estimate CapEx.
     free_cf = op_cf - (min(inv_cf, 0.0) * -1)
     """
-    # Balance sheet with minimal data
     bs_df = pd.DataFrame(
         {"Value": [1000, 500]},
         index=["Total assets", "Total shareholders’ equity"]
     )
-
-    # Income statement with minimal data
     inc_df = pd.DataFrame(
         {"Value": [2000, -1000]},
         index=["Net sales", "Cost of sales"]
     )
-
-    # Cash flow: has operating CF, but no 'capital_expenditures' row
-    # so fallback to cash_flow_investing
     cf_df = pd.DataFrame(
         {"Value": [800, -200]},  # -200 => negative investing CF
-        index=["Cash generated by operating activities", "Cash generated by/(used in) investing activities"]
+        index=[
+            "Cash generated by operating activities",
+            "Cash generated by/(used in) investing activities"
+        ]
     )
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
-
-    # free_cf = 800 - ( min(-200, 0) * -1 ) = 800 - 200 = 600
     assert metrics["Cash from Operations"] == 800
-    assert metrics["Free Cash Flow"] == 600
+    assert metrics["Free Cash Flow"] == 600  # 800 - 200
+
 
 def test_gross_profit_none_but_revenue_present():
     """
@@ -333,7 +320,6 @@ def test_gross_profit_none_but_revenue_present():
     the function should calculate gross_profit = revenue - cost_of_revenue.
     """
     bs_df = pd.DataFrame({"Value": [0]}, index=["Total assets"])  # minimal
-    # Revenue=1500, cost_of_revenue=-700 => automatically flip sign => +700
     inc_df = pd.DataFrame(
         {"Value": [1500, -700]},
         index=["Net sales", "Cost of sales"]
@@ -342,8 +328,9 @@ def test_gross_profit_none_but_revenue_present():
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
     assert metrics["Revenue"] == 1500
-    # If gross_profit was None, code calculates => 1500 - 700 => 800
+    assert metrics["CostOfRev"] == 700  # negative => +700
     assert metrics["Gross Profit"] == 800
+
 
 def test_equity_zero_debt_equity_fallback():
     """
@@ -354,13 +341,12 @@ def test_equity_zero_debt_equity_fallback():
         {"Value": [1000, 0]},
         index=["Total liabilities", "Total shareholders’ equity"]
     )
-    # Minimal inc + CF
     inc_df = pd.DataFrame({"Value": [1000]}, index=["Net sales"])
     cf_df = pd.DataFrame({"Value": [500]}, index=["Cash generated by operating activities"])
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
-    # total_equity=0 => Debt-to-Equity => 0
     assert metrics["Debt-to-Equity"] == 0
+
 
 def test_alerts_negative_margin():
     """
@@ -387,7 +373,6 @@ def test_alerts_low_positive_roe():
     """
     Small positive net income => net margin is positive, but ROE < 5% => triggers 'ROE < 5.0%' alert.
     """
-    # Equity is large => net income is small => ROE is positive but less than 5
     bs_df = pd.DataFrame(
         {"Value": [10000]},
         index=["Total shareholders’ equity"]
@@ -396,17 +381,16 @@ def test_alerts_low_positive_roe():
         {"Value": [2000, 100]},  # Revenue=2000, NetIncome=100 => net margin = 5%
         index=["Net sales", "Net income"]
     )
-    # 100 / 10000 => ROE=1% => triggers the "ROE < 5%" alert
     cf_df = pd.DataFrame({"Value": [500]}, index=["Cash generated by operating activities"])
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
     alerts = metrics["Alerts"]
     assert metrics["ROE %"] == pytest.approx(1.0, abs=1e-3)
-    assert any("ROE < 5.0%" in alert for alert in alerts), \
-        "Should have 'ROE < 5%' alert because ROE=1%."
+    assert any("ROE < 5.0%" in alert for alert in alerts)
 
     # This scenario does NOT produce negative margin => no negative margin alert
     assert not any("Net margin below" in alert for alert in alerts)
+
 
 def test_no_capex_no_investing_fallback():
     """
@@ -415,15 +399,13 @@ def test_no_capex_no_investing_fallback():
     then we can't find investing either => free_cf should just be op_cf.
     """
     bs_df = pd.DataFrame({"Value": [1000]}, index=["Total shareholders’ equity"])  # minimal
-    # No revenue or cost_of_sales => everything is 0
     inc_df = pd.DataFrame({"Value": [0]}, index=["Net sales"])
-
-    # CF has only something irrelevant, e.g. 'Random CF line'
     cf_df = pd.DataFrame({"Value": [999]}, index=["Some random line"])
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
-    assert metrics["Cash from Operations"] == 0.0, "No 'OpCF' found => fallback=0.0"
-    assert metrics["Free Cash Flow"] == 0.0, "No CapEx, no investing => free_cf defaults to op_cf=0.0"
+    assert metrics["Cash from Operations"] == 0.0
+    assert metrics["Free Cash Flow"] == 0.0
+
 
 def test_gross_profit_nan_revenue_zero():
     """
@@ -432,15 +414,45 @@ def test_gross_profit_nan_revenue_zero():
     """
     bs_df = pd.DataFrame({"Value": [500]}, index=["Total shareholders’ equity"])
     inc_df = pd.DataFrame({"Value": [0]}, index=["Net sales"])  # revenue=0
-    # no explicit 'Gross Profit' row => fallback=NaN
     cf_df = pd.DataFrame({"Value": [100]}, index=["Cash generated by operating activities"])
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
-
-    # Because revenue=0 => code won't do "gross_profit = revenue - cost_revenue"
-    # So "Gross Profit" might remain 0.0 (depending on your fallback) or stay "NaN" if you store numeric only.
-    # Typically in your code, we set 'Gross Profit' to 0.0 if it's NaN. So let's check:
     assert metrics["Revenue"] == 0
-    assert metrics["Gross Profit"] == 0.0, (
-        "Should remain 0.0 since we can't fix NaN if revenue=0"
+    assert metrics["Gross Profit"] == 0.0
+
+
+def test_dep_in_cogs_adjustment():
+    """
+    New test for logic that checks if there's a separate 'Depreciation in cost of sales'
+    row and reclassifies it. We'll confirm that total D&A and cost_of_revenue are adjusted.
+    """
+    balance_df = pd.DataFrame(
+        {"Value": [1000, 500, 1500]},
+        index=["Total current assets", "Total liabilities", "Total assets"]
     )
+    # Net sales=2000, Dep in COGS=100, cost_of_sales=-300 => negative => +300 if flipping
+    income_df = pd.DataFrame(
+        {"Value": [2000, 100, -300]},
+        index=["Net sales", "Depreciation in cost of sales", "Cost of sales"]
+    )
+    # Normal CF
+    cash_df = pd.DataFrame(
+        {"Value": [800, -100]},
+        index=[
+            "Cash generated by operating activities",
+            "Capital Expenditures",
+        ]
+    )
+
+    metrics = compute_ratios_and_metrics(balance_df, income_df, cash_df)
+
+    # We check that cost_of_sales is flipped from -300 => +300 => then minus the 100 from Dep in COGS => 200
+    assert metrics["CostOfRev"] == 200, "Should remove dep_in_cogs from cost_of_revenue after flipping"
+    # Depreciation in cost_of_sales was 100 => total D&A => so check EBITDA minus EBIT = 100
+    ebit_val = metrics["EBIT (approx)"]
+    ebitda_val = metrics["EBITDA (approx)"]
+    assert ebitda_val - ebit_val == pytest.approx(100.0)
+
+    # Also confirm Net Income isn't thrown off:
+    # net_income is not directly in this test data => default 0 => no crash
+    assert metrics["Net Income"] == 0.0, "If not in DF, default=0"

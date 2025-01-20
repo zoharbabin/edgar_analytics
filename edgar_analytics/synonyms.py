@@ -144,6 +144,32 @@ SYNONYMS = {
     ],
 
     # ======================
+    #   DEPRECIATION & AMORTIZATION
+    # ======================
+    "depreciation_amortization": [
+        "us-gaap:DepreciationDepletionAndAmortization",
+        "us-gaap_DepreciationDepletionAndAmortization",
+        "Depreciation and amortization",
+        "Depreciation & Amortization",
+        "Depreciation expense",
+        "Amortization expense",
+        "Depreciation and amortization expense",
+        "D&A",
+    ],
+
+    # ======================
+    # DEPRECIATION EMBEDDED IN COST OF SALES
+    # ======================
+    "depreciation_in_cost_of_sales": [
+        "us-gaap:DepreciationAmortizationInCostOfGoodsSold",
+        "us-gaap_DepreciationAmortizationInCostOfGoodsSold",
+        "Depreciation in cost of sales",
+        "Depreciation included in cost of sales",
+        "Depreciation (in cost of sales)",
+        "Depr in cost of goods sold",
+    ],
+
+    # ======================
     #       NET INCOME
     # ======================
     "net_income": [
