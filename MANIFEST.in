@@ -1,0 +1,11 @@
+# Include the README and LICENSE at the top-level
+include README.md
+include LICENSE
+
+# Include all files in the "examples" folder
+recursive-include examples *
+
+# Optionally include tests if you want them in the sdist
+recursive-include tests *
+
+# If you have any other data/assets outside package dirs, add rules here.
