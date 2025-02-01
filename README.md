@@ -89,7 +89,7 @@ pip install edgar-analytics
 
     ```bash
     python3 -m venv venv
-    source venv/bin/activate   # or venv\Scripts\activate on Windows
+    source ./venv/bin/activate   # or venv\Scripts\activate on Windows
     pip install --upgrade pip setuptools wheel
     ```
 
@@ -333,6 +333,7 @@ From the project root (where `pytest` can discover `tests/`):
 
 ```bash
 pytest -v --cov=edgar_analytics --cov-report=term-missing
+# To run in parallel threads: pytest --maxfail=1 --disable-warnings -v -n auto tests
 ```
 
 The test suite includes fixtures for capturing and verifying log outputs, particularly useful for testing the Orchestrator and ReportingEngine components.
