@@ -25,22 +25,23 @@ Modules
 
 from .synonyms import SYNONYMS
 from .metrics import compute_ratios_and_metrics, get_single_filing_snapshot
-from .forecasting import (
-    forecast_revenue,
-    ArimaForecastStrategy,
-    ForecastStrategy,
-)
+from .forecasting import forecast_revenue, ForecastStrategy, ArimaForecastStrategy
 from .multi_period_analysis import (
     retrieve_multi_year_data,
     analyze_quarterly_balance_sheets,
     check_additional_alerts_quarterly,
 )
-from .synonyms_utils import find_synonym_value, flip_sign_if_negative_expense
+from .synonyms_utils import (
+    find_synonym_value,
+    flip_sign_if_negative_expense,
+    compute_capex_single_period,
+    compute_capex_for_column,
+)
 from .data_utils import (
     parse_period_label,
     custom_float_format,
     ensure_dataframe,
-    make_numeric_df,
+    make_numeric_df
 )
 from .orchestrator import TickerOrchestrator
 from .reporting import ReportingEngine
@@ -57,6 +58,8 @@ __all__ = [
     "check_additional_alerts_quarterly",
     "find_synonym_value",
     "flip_sign_if_negative_expense",
+    "compute_capex_single_period",
+    "compute_capex_for_column",
     "parse_period_label",
     "custom_float_format",
     "ensure_dataframe",
