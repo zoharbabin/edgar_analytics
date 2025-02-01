@@ -7,12 +7,25 @@ fetched or offline data). This bypasses the Orchestrator and EDGAR calls.
 
 If your DataFrames contain IFRS-labeled lines, the system will 
 match them automatically if synonyms are present (e.g., "ifrs-full:RightOfUseAssets").
+
+This example also shows how to:
+1. Configure and use the enhanced logging system
+2. Handle suppressed logs for cleaner output
+3. Use Rich console formatting for better readability
 """
 
 import pandas as pd
 from edgar_analytics.metrics import compute_ratios_and_metrics
+from edgar_analytics.logging_utils import configure_logging, get_logger
+from rich.console import Console
 
-def main():
+# Get a logger for this module
+logger = get_logger(__name__)
+console = Console()
+
+
+def create_example_dataframes():
+    """Create example financial statement DataFrames."""
     # Example balance sheet
     balance_data = {
         "Value": [
@@ -28,7 +41,7 @@ def main():
         "Total current liabilities",
         "Total assets",
         "Total liabilities",
-        "Total shareholders’ equity",
+        "Total shareholders' equity",
     ]
     balance_df = pd.DataFrame(balance_data, index=balance_index)
 
@@ -36,7 +49,7 @@ def main():
     income_data = {
         "Value": [
             6000,  # Net sales (Revenue)
-            -3000, # Cost of sales (negative sign -> flip it)
+            -3000,  # Cost of sales (negative sign -> flip it)
             3000,  # Gross margin
             -800,  # Operating expenses (negative sign -> flip it)
             1500,  # Net income
@@ -64,13 +77,81 @@ def main():
     ]
     cash_df = pd.DataFrame(cash_data, index=cash_index)
 
+    return balance_df, income_df, cash_df
+
+
+def analyze_metrics(balance_df, income_df, cash_df, suppress_logs=False):
+    """
+    Compute and display financial metrics with configurable logging.
+
+    Args:
+        balance_df: Balance sheet DataFrame
+        income_df: Income statement DataFrame
+        cash_df: Cash flow statement DataFrame
+        suppress_logs: If True, minimize console output
+    """
+    # Configure logging based on suppress_logs parameter
+    log_level = "WARNING" if suppress_logs else "INFO"
+    configure_logging(log_level, suppress_logs=suppress_logs)
+
+    logger.info("Starting metrics computation...")
+
+    # Log the input data if not suppressed
+    if not suppress_logs:
+        logger.debug("\nBalance Sheet:\n%s", balance_df)
+        logger.debug("\nIncome Statement:\n%s", income_df)
+        logger.debug("\nCash Flow:\n%s", cash_df)
+
     # Compute the metrics
     metrics = compute_ratios_and_metrics(balance_df, income_df, cash_df)
 
-    # Print them out
-    print("Manual Metrics Computation:")
-    for k, v in metrics.items():
-        print(f"{k}: {v}")
+    # Display results using Rich formatting
+    console.print("\n[bold magenta]Financial Metrics Summary:[/bold magenta]")
+    
+    # Group metrics by category for better presentation
+    categories = {
+        "Profitability": ["Gross Margin %", "Net Margin %", "ROE %", "ROA %"],
+        "Efficiency": ["Operating Expenses", "EBITDA (approx)", "Free Cash Flow"],
+        "Leverage": ["Debt-to-Equity", "Net Debt", "Net Debt/EBITDA"],
+        "Asset Quality": ["Intangible Ratio %", "Goodwill Ratio %", "Tangible Equity"],
+    }
+
+    for category, metric_list in categories.items():
+        console.print(f"\n[bold cyan]{category}:[/bold cyan]")
+        for metric in metric_list:
+            if metric in metrics:
+                value = metrics[metric]
+                # Format numbers based on type
+                if isinstance(value, float):
+                    formatted_value = f"{value:,.2f}"
+                else:
+                    formatted_value = str(value)
+                console.print(f"  {metric}: [green]{formatted_value}[/green]")
+
+    # Log any alerts
+    alerts = metrics.get("Alerts", [])
+    if alerts:
+        console.print("\n[bold red]Alerts:[/bold red]")
+        for alert in alerts:
+            console.print(f"  [red]• {alert}[/red]")
+            logger.warning(alert)
+
+    return metrics
+
+
+def main():
+    # Example 1: Full output with detailed logging
+    console.print("\n[bold]Example 1: Full Analysis[/bold]")
+    balance_df, income_df, cash_df = create_example_dataframes()
+    metrics = analyze_metrics(balance_df, income_df, cash_df, suppress_logs=False)
+
+    # Example 2: Minimal output (suppressed logs)
+    console.print("\n[bold]Example 2: Minimal Output[/bold]")
+    metrics_minimal = analyze_metrics(
+        balance_df, income_df, cash_df,
+        suppress_logs=True
+    )
+
 
 if __name__ == "__main__":
     main()
