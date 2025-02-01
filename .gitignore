@@ -201,3 +201,4 @@ cache/
 
 # Additional specific files to ignore
 digest.txt
+edgar_analytics_debug.jsonl
