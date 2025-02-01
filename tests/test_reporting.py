@@ -44,11 +44,12 @@ def test_summarize_metrics_table_with_csv(tmp_path, dummy_metrics_map):
      - to_csv is called
      - logger mentions saving
     """
+    
     reporting_engine = ReportingEngine()
     outdir = tmp_path / "outputs"
     outdir.mkdir(exist_ok=True)
     csv_path = outdir / "summary.csv"
-
+    
     with patch.object(Path, "mkdir") as mock_mkdir, \
          patch("pandas.DataFrame.to_csv") as mock_to_csv, \
          patch.object(reporting_engine.logger, "info") as mock_info:
@@ -59,17 +60,12 @@ def test_summarize_metrics_table_with_csv(tmp_path, dummy_metrics_map):
             csv_path=str(csv_path)
         )
 
-        # Confirm directory creation
         mock_mkdir.assert_called_with(parents=True, exist_ok=True)
-
-        # Confirm DataFrame is written to CSV
         mock_to_csv.assert_called_once_with(csv_path.resolve(), index=True)
 
-        # Check for log message about saving
         info_msgs = [call.args[0] for call in mock_info.call_args_list]
-        assert any("Snapshot summary saved to" in msg for msg in info_msgs), (
-            "Should log about CSV saving."
-        )
+        # or for call in mock_info.call_args_list: call.args => the format string & call.args[1:] => params
+        assert any("Snapshot summary saved to" in msg for msg in info_msgs), "Should log about CSV saving."
 
 
 def test_summarize_metrics_table_empty_data(empty_metrics_map):
@@ -130,14 +126,13 @@ def test_log_multi_year_negative_cagr(caplog):
     'Overall revenue has contracted' branch is hit.
     """
     reporting_engine = ReportingEngine()
-
     # earliest year= 2020 => 1000, latest year= 2023 => 500 => negative CAGR
     metrics_map = {
         "FAKE": {
             "multiyear": {
                 "annual_data": {"Revenue": {"2020": 1000, "2023": 500}},
                 "yoy_revenue_growth": {},
-                "cagr_revenue": -20.0,  # forcibly negative
+                "cagr_revenue": -20.0,
             },
             "forecast": {
                 "annual_rev_forecast": 0.0,
@@ -146,8 +141,9 @@ def test_log_multi_year_negative_cagr(caplog):
         }
     }
 
-    with caplog.at_level("INFO"):
-        reporting_engine._log_multi_year_and_forecast(metrics_map)
+    with caplog.at_level("INFO", logger="edgar_analytics.reporting"):
+        # changed from _log_multi_year_and_forecast => _show_multi_year_and_forecast
+        reporting_engine._show_multi_year_and_forecast(metrics_map)
 
     assert "Overall revenue has contracted" in caplog.text, (
         "Expected negative CAGR log message."

@@ -9,18 +9,21 @@ ReportingEngine tests have been moved to test_reporting.py.
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
+import logging
 
 from edgar_analytics.orchestrator import TickerOrchestrator, TickerDetector
 from edgar_analytics.reporting import ReportingEngine
 
 
+@pytest.mark.usefixtures("caplog")
 def test_analyze_company_basic(caplog):
     """
     Verify that orchestrator logs "Analyzing company: AAPL"
     and logs "Comparing AAPL with peers: []" even if no peers.
     """
     with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze, \
-         patch("edgar_analytics.reporting.ReportingEngine.summarize_metrics_table") as mock_summary:
+         patch("edgar_analytics.reporting.ReportingEngine.summarize_metrics_table") as mock_summary, \
+         caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
 
         mock_analyze.return_value = {
             "annual_snapshot": {"metrics": {"Revenue": 123, "Alerts": []}},
@@ -30,13 +33,10 @@ def test_analyze_company_basic(caplog):
         orchestrator = TickerOrchestrator()
         orchestrator.analyze_company("AAPL", peers=[], csv_path=None)
 
-    # Check logs
-    assert "Analyzing company: AAPL" in caplog.text, (
-        "Expected 'Analyzing company: AAPL' in logs."
-    )
-    assert "Comparing AAPL with peers: []" in caplog.text, (
-        "Expected 'Comparing AAPL with peers: []' in logs."
-    )
+    # Check logs: we should see 'Analyzing company: AAPL' and 'Comparing AAPL with peers: []'
+    logs = caplog.text
+    assert "Analyzing company: AAPL" in logs, "Expected 'Analyzing company: AAPL' in logs."
+    assert "Comparing AAPL with peers: []" in logs, "Expected 'Comparing AAPL with peers: []' in logs."
 
 
 def test_analyze_company_with_peers():
@@ -82,19 +82,20 @@ def test_analyze_company_with_csv(tmp_path):
         )
 
 
+@pytest.mark.usefixtures("caplog")
 def test_analyze_company_invalid_peer(caplog):
     """
     Invalid peer scenario: should log a warning and skip that peer.
     """
-    with patch("edgar_analytics.orchestrator.Company") as mock_company:
-        # Return some trivial mock so 'AAPL' doesn't do a real fetch
+    with patch("edgar_analytics.orchestrator.Company") as mock_company, \
+         caplog.at_level(logging.WARNING, logger="edgar_analytics.orchestrator"):
         mock_company.return_value = MagicMock()
 
-    orchestrator = TickerOrchestrator()
-    orchestrator.analyze_company("AAPL", peers=["@@@", "MSFT"])
+        orchestrator = TickerOrchestrator()
+        orchestrator.analyze_company("AAPL", peers=["@@@", "MSFT"])
 
-    # Check logs
-    assert "Skipping invalid peer ticker: @@@" in caplog.text
+    logs = caplog.text
+    assert "Skipping invalid peer ticker: @@@" in logs, "Should log a warning about invalid peer."
 
 
 def test_analyze_company_exception_in_creation(caplog):

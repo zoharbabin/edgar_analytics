@@ -1,9 +1,11 @@
 # tests/test_cli.py
 
+import logging
 import pytest
 from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 from edgar_analytics.cli import main
+from edgar_analytics.logging_utils import configure_logging
 
 @pytest.fixture
 def runner():
@@ -30,6 +32,11 @@ def mock_multifin():
     mock_mf.get_cash_flow_statement.return_value = None
     return mock_mf
 
+@pytest.fixture(autouse=True)
+def setup_logging():
+    """Configure logging before each test."""
+    configure_logging("INFO", suppress_logs=False)
+    yield
 
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
 @patch("edgar_analytics.orchestrator.Company")
@@ -50,10 +57,11 @@ def test_cli_no_peers(
     # Any time multi_period_analysis calls 'MultiFinancials(...)', return our mock_mf
     mock_MultiFinancials.return_value = mock_multifin
 
-    result = runner.invoke(main, ["AAPL"])
-    assert result.exit_code == 0
-    # Because the real code in analyze_company should run, we see the log:
-    assert "Analyzing company: AAPL" in caplog.text
+    with caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
+        result = runner.invoke(main, ["AAPL"])
+        assert result.exit_code == 0
+        print(caplog.text)
+        assert "Analyzing company: AAPL" in caplog.text
 
 
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
@@ -89,10 +97,11 @@ def test_cli_with_csv(
     mock_MultiFinancials.return_value = mock_multifin
 
     csv_file = tmp_path / "out.csv"
-    result = runner.invoke(main, ["AAPL", "MSFT", "--csv", str(csv_file)])
-    assert result.exit_code == 0
-    assert csv_file.exists()
-    assert "Snapshot summary saved to" in caplog.text
+    with caplog.at_level(logging.INFO, logger="edgar_analytics.reporting"):
+        result = runner.invoke(main, ["AAPL", "MSFT", "--csv", str(csv_file)])
+        assert result.exit_code == 0
+        assert csv_file.exists(), "CSV file was not created"
+        assert "Snapshot summary saved to" in caplog.text
 
 
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
