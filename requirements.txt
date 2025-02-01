@@ -4,6 +4,7 @@ numpy
 statsmodels
 edgartools
 click
+rich
 
 # tests
 pytest

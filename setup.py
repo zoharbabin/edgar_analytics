@@ -26,6 +26,7 @@ setuptools.setup(
         "statsmodels",
         "edgartools",
         "click",
+        "rich",
     ],
     extras_require={
         "test": [
