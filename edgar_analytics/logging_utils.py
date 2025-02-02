@@ -52,9 +52,8 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
     }
     chosen_level = valid_levels.get(log_level.upper(), logging.INFO)
 
-    # Get the edgar_analytics logger
+    # Get the edgar_analytics logger and set its level
     edgar_logger = logging.getLogger("edgar_analytics")
-    edgar_logger.setLevel(chosen_level)
 
     # JSON logs file handler at DEBUG
     debug_file_path = os.path.join(os.getcwd(), "edgar_analytics_debug.jsonl")
@@ -63,8 +62,6 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
     json_file_handler.setLevel(logging.DEBUG)
     json_file_handler.setFormatter(json_formatter)
 
-    # Add JSON handler to edgar_analytics logger
-    edgar_logger.addHandler(json_file_handler)
 
     # Rich console handler
     if suppress_logs:
@@ -80,8 +77,15 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
         show_level=True,
         show_path=False
     )
-    # Add console handler to edgar_analytics logger
-    edgar_logger.addHandler(console_handler)
+
+    # Set logger level and prevent duplicate handler registration
+    edgar_logger.setLevel(chosen_level)
+    
+    # Only add handlers if none exist
+    if not edgar_logger.handlers:
+        edgar_logger.addHandler(json_file_handler)
+        edgar_logger.addHandler(console_handler)
+    # Note: We don't update existing handlers as per ADR decision
 
     # Third-party loggers, adjusted for noise if not DEBUG
     third_party_loggers = ["edgar", "edgartools", "httpx"]
