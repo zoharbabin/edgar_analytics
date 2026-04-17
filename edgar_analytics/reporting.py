@@ -222,6 +222,11 @@ class ReportingEngine:
             line_out = f"[bold]{ticker}[/bold] => {yoy_msg}{cagr_msg}{fc_text}"
             self.console.print(line_out)
 
+            ttm = multi.get("ttm", {})
+            if ttm:
+                ttm_parts = [f"{k}={v:,.0f}" for k, v in ttm.items()]
+                self.console.print(f"  TTM: {', '.join(ttm_parts)}")
+
             yoy_all = multi.get("yoy_growth", {})
             cagr_all = multi.get("cagr", {})
             for metric in ("Net Income", "Gross Profit", "Operating Income"):

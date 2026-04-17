@@ -205,6 +205,24 @@ class TestScoresResult:
         assert restored.piotroski.components == ("ROA>0", "CFO>0")
 
 
+class TestMultiYearDataTTM:
+    def test_ttm_field_round_trip(self):
+        d = {
+            "annual_data": {"Revenue": {"2022": 100}},
+            "quarterly_data": {},
+            "ttm": {"Revenue": 400, "Net Income": 80},
+        }
+        my = MultiYearData.from_dict(d)
+        assert my.ttm["Revenue"] == 400
+        assert my.ttm["Net Income"] == 80
+        rt = my.to_dict()
+        assert rt["ttm"] == {"Revenue": 400, "Net Income": 80}
+
+    def test_ttm_default_empty(self):
+        my = MultiYearData()
+        assert my.ttm == {}
+
+
 class TestAnalysisResult:
     def test_main_and_peers(self):
         result = AnalysisResult(
@@ -243,3 +261,72 @@ class TestAnalysisResult:
         assert parsed["tickers"]["TEST"]["annual_snapshot"]["metrics"]["Gross Margin %"] is None
         assert parsed["tickers"]["TEST"]["market_cap"] is None
         assert parsed["tickers"]["TEST"]["annual_snapshot"]["metrics"]["Revenue"] == 1000
+
+    def test_to_dataframe(self):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    annual_snapshot=FilingSnapshot(
+                        metrics=SnapshotMetrics(revenue=1000, net_income=200),
+                    ),
+                ),
+                "MSFT": TickerAnalysis(
+                    ticker="MSFT",
+                    annual_snapshot=FilingSnapshot(
+                        metrics=SnapshotMetrics(revenue=5000, net_income=1500),
+                    ),
+                ),
+            },
+        )
+        import pandas as pd
+        df = result.to_dataframe()
+        assert isinstance(df, pd.DataFrame)
+        assert set(df.index) == {"AAPL", "MSFT"}
+        assert df.loc["AAPL", "Revenue"] == 1000
+        assert df.loc["MSFT", "Net Income"] == 1500
+        assert "Alerts" not in df.columns
+
+    def test_to_panel(self):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    multiyear=MultiYearData(
+                        annual_data={"Revenue": {"2022": 100, "2023": 120}},
+                    ),
+                ),
+            },
+        )
+        import pandas as pd
+        panel = result.to_panel()
+        assert isinstance(panel, pd.DataFrame)
+        assert ("AAPL", "2023") in panel.index
+        assert panel.loc[("AAPL", "2023"), "Revenue"] == 120
+
+    def test_to_panel_empty(self):
+        result = AnalysisResult(main_ticker="X", tickers={"X": TickerAnalysis(ticker="X")})
+        import pandas as pd
+        panel = result.to_panel()
+        assert isinstance(panel, pd.DataFrame)
+        assert panel.empty
+
+    def test_to_parquet(self, tmp_path):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    annual_snapshot=FilingSnapshot(
+                        metrics=SnapshotMetrics(revenue=1000),
+                    ),
+                ),
+            },
+        )
+        path = str(tmp_path / "test.parquet")
+        result.to_parquet(path)
+        import pandas as pd
+        df = pd.read_parquet(path)
+        assert df.loc["AAPL", "Revenue"] == 1000

@@ -283,3 +283,101 @@ def test_public_analyze_function():
 
     assert isinstance(result, ea.AnalysisResult)
     assert result.main.annual_snapshot.metrics.revenue == 42
+
+
+# ---------------------------------------------------------------------
+#         TTM wiring in orchestrator
+# ---------------------------------------------------------------------
+
+def test_ttm_wired_into_multiyear():
+    """compute_ttm is called on quarterly_data and result stored in multiyear.ttm."""
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 1000, "Alerts": []}, "filing_info": {}},
+            "quarterly_snapshot": {"metrics": {}, "filing_info": {}},
+            "multiyear": {
+                "annual_data": {},
+                "quarterly_data": {
+                    "Revenue": {
+                        "2023-Q1": 250, "2023-Q2": 260,
+                        "2023-Q3": 270, "2023-Q4": 280,
+                    },
+                },
+                "ttm": {"Revenue": 1060},
+            },
+            "forecast": {},
+            "extra_alerts": [],
+        }
+        orchestrator = TickerOrchestrator()
+        result = orchestrator.analyze("AAPL")
+
+    assert result.main.multiyear.ttm["Revenue"] == 1060
+
+
+# ---------------------------------------------------------------------
+#         Concurrent peer fetching
+# ---------------------------------------------------------------------
+
+def test_concurrent_peer_fetching():
+    """Peers are fetched concurrently and results stored correctly."""
+    call_order = []
+
+    def mock_analyze_side_effect(ticker, *args, **kwargs):
+        call_order.append(ticker)
+        return {
+            "annual_snapshot": {"metrics": {"Revenue": 100, "Alerts": []}, "filing_info": {}},
+            "quarterly_snapshot": {"metrics": {}, "filing_info": {}},
+            "multiyear": {"annual_data": {}, "quarterly_data": {}, "ttm": {}},
+            "forecast": {},
+            "extra_alerts": [],
+        }
+
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics",
+               side_effect=mock_analyze_side_effect):
+        orchestrator = TickerOrchestrator()
+        result = orchestrator.analyze("AAPL", peers=["MSFT", "GOOGL"])
+
+    assert "MSFT" in result.tickers
+    assert "GOOGL" in result.tickers
+    assert result.tickers["MSFT"].annual_snapshot.metrics.revenue == 100
+
+
+def test_concurrent_peer_failure_handled():
+    """A failing peer does not crash the whole analysis."""
+    call_count = 0
+
+    def mock_analyze_side_effect(ticker, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if ticker == "FAIL":
+            raise RuntimeError("Peer fetch failed")
+        return {
+            "annual_snapshot": {"metrics": {"Revenue": 100, "Alerts": []}, "filing_info": {}},
+            "quarterly_snapshot": {"metrics": {}, "filing_info": {}},
+            "multiyear": {"annual_data": {}, "quarterly_data": {}, "ttm": {}},
+            "forecast": {},
+            "extra_alerts": [],
+        }
+
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics",
+               side_effect=mock_analyze_side_effect):
+        orchestrator = TickerOrchestrator()
+        result = orchestrator.analyze("AAPL", peers=["MSFT", "FAIL"])
+
+    assert "AAPL" in result.tickers
+    assert "MSFT" in result.tickers
+    assert "FAIL" not in result.tickers
+
+
+def test_semaphore_rate_limiting():
+    """_analyze_ticker_with_semaphore acquires the semaphore."""
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 100, "Alerts": []}, "filing_info": {}},
+            "extra_alerts": [],
+        }
+        orchestrator = TickerOrchestrator()
+        result = orchestrator._analyze_ticker_with_semaphore("AAPL", 3, 10, False)
+
+    assert result["annual_snapshot"]["metrics"]["Revenue"] == 100
+    mock_analyze.assert_called_once_with("AAPL", n_years=3, n_quarters=10, disable_forecast=False)

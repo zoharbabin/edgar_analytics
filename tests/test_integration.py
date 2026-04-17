@@ -111,6 +111,53 @@ class TestForecasting:
             assert fc != 0.0, "With enough AAPL data, forecast should be non-zero"
 
 
+class TestIFRSFiler:
+    """Test an IFRS filer that files 20-F (e.g., Unilever)."""
+
+    def test_ul_20f_snapshot(self):
+        comp = Company("UL")
+        snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        m = snap.get("metrics", {})
+        if not m:
+            pytest.skip("UL filing not available")
+        assert m.get("Revenue", 0) > 0, "Unilever revenue should be positive"
+        info = snap.get("filing_info", {})
+        assert info.get("form_type") in ("20-F", "20-F/A"), f"Expected 20-F, got {info.get('form_type')}"
+
+
+class TestBankFiler:
+    """Test a bank with different statement structure (JPMorgan)."""
+
+    def test_jpm_10k_snapshot(self):
+        comp = Company("JPM")
+        snap = get_single_filing_snapshot(comp, "10-K")
+        m = snap.get("metrics", {})
+        if not m:
+            pytest.skip("JPM filing not available")
+        assert m.get("Revenue", 0) != 0 or m.get("Net Income", 0) != 0, (
+            "JPM should have revenue or net income"
+        )
+        assert isinstance(m.get("Alerts"), list)
+
+    def test_jpm_quality_ratios(self):
+        comp = Company("JPM")
+        snap = get_single_filing_snapshot(comp, "10-K")
+        m = snap.get("metrics", {})
+        if not m:
+            pytest.skip("JPM filing not available")
+        assert "Accruals Ratio" in m
+        assert "Earnings Quality" in m
+
+
+class TestAmendedFiling:
+    """Verify that amended filings (10-K/A) are handled by the fallback."""
+
+    def test_fallback_includes_amended(self):
+        assert "10-K/A" in ANNUAL_FORM_TYPES
+        assert "20-F/A" in ANNUAL_FORM_TYPES
+        assert "10-Q/A" in QUARTERLY_FORM_TYPES
+
+
 class TestMetricsConsistency:
     """Sanity checks on metric relationships."""
 

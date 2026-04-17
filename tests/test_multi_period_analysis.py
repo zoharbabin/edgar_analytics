@@ -155,6 +155,65 @@ def test_check_additional_alerts_quarterly_consecutive_negative_fcf():
     assert any("2 consecutive quarters of negative FCF" in a for a in alerts), \
         "Expected an alert for 2 consecutive negative FCF quarters"
 
+def test_extract_period_values_expanded_metrics():
+    """extract_period_values now tracks Cost of Revenue, Interest Expense, Income Tax Expense."""
+    df = pd.DataFrame({
+        "2020-12-31": [100, 50, 80, 70, 40, 10, 5],
+        "2021-12-31": [200, 80, 120, 100, 60, 15, 8],
+    }, index=["Revenue", "Net Income", "Gross Profit", "Operating Income",
+              "Cost of Revenue", "Interest Expense", "Income Tax Expense"])
+    results = extract_period_values(df, debug_label="test_expanded")
+    assert results["Cost of Revenue"]["2020-12-31"] == 40
+    assert results["Interest Expense"]["2021-12-31"] == 15
+    assert results["Income Tax Expense"]["2020-12-31"] == 5
+
+
+def test_compute_derived_ratios():
+    """_compute_derived_ratios adds margin % series in-place."""
+    from edgar_analytics.multi_period_analysis import _compute_derived_ratios
+
+    data = {
+        "Revenue": {"2022": 1000, "2023": 1200},
+        "Gross Profit": {"2022": 600, "2023": 780},
+        "Operating Income": {"2022": 300, "2023": 400},
+        "Net Income": {"2022": 200, "2023": 300},
+    }
+    _compute_derived_ratios(data)
+
+    assert "Gross Margin %" in data
+    assert data["Gross Margin %"]["2022"] == pytest.approx(60.0)
+    assert data["Gross Margin %"]["2023"] == pytest.approx(65.0)
+
+    assert "Operating Margin %" in data
+    assert data["Operating Margin %"]["2023"] == pytest.approx(400 / 1200 * 100.0, abs=0.01)
+
+    assert "Net Margin %" in data
+    assert data["Net Margin %"]["2022"] == pytest.approx(20.0)
+
+
+def test_compute_derived_ratios_zero_revenue():
+    """Periods with zero revenue are skipped (no division by zero)."""
+    from edgar_analytics.multi_period_analysis import _compute_derived_ratios
+
+    data = {
+        "Revenue": {"2022": 0, "2023": 500},
+        "Net Income": {"2022": 100, "2023": 50},
+    }
+    _compute_derived_ratios(data)
+    assert "Net Margin %" in data
+    assert "2022" not in data["Net Margin %"]
+    assert data["Net Margin %"]["2023"] == pytest.approx(10.0)
+
+
+def test_compute_derived_ratios_empty():
+    """No crash with empty data."""
+    from edgar_analytics.multi_period_analysis import _compute_derived_ratios
+
+    data = {"Revenue": {}}
+    _compute_derived_ratios(data)
+    assert "Gross Margin %" not in data
+
+
 def test_inventory_receivables_spike():
     """
     Provide quarterly data with a >30% spike in inventory and receivables

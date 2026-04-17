@@ -8,6 +8,8 @@ and final reporting.
 
 import os
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Any, List, Optional
 
 import pandas as pd
@@ -23,7 +25,7 @@ from .metrics import (
     ANNUAL_FORM_TYPES,
     QUARTERLY_FORM_TYPES,
 )
-from .scores import compute_all_scores
+from .scores import compute_all_scores, compute_ttm
 from .forecasting import forecast_revenue
 from .multi_period_analysis import (
     retrieve_multi_year_data,
@@ -68,6 +70,8 @@ class TickerOrchestrator:
       - Summarize results with a ReportingEngine
     """
 
+    _SEC_SEMAPHORE = threading.Semaphore(10)
+
     def __init__(self) -> None:
         self.logger = logger
         self.reporting_engine = ReportingEngine()
@@ -110,15 +114,27 @@ class TickerOrchestrator:
         )
         result.tickers[ticker] = TickerAnalysis.from_dict(ticker, main_data)
 
-        for peer in (peers or []):
-            if TickerDetector.validate_ticker_symbol(peer):
-                peer_data = self._analyze_ticker_for_metrics(
-                    peer, n_years=n_years, n_quarters=n_quarters,
-                    disable_forecast=disable_forecast,
-                )
-                result.tickers[peer] = TickerAnalysis.from_dict(peer, peer_data)
-            else:
-                self.logger.warning("Skipping invalid peer ticker: %s", peer)
+        valid_peers = [p for p in (peers or []) if TickerDetector.validate_ticker_symbol(p)]
+        for p in (peers or []):
+            if not TickerDetector.validate_ticker_symbol(p):
+                self.logger.warning("Skipping invalid peer ticker: %s", p)
+
+        if valid_peers:
+            with ThreadPoolExecutor(max_workers=min(len(valid_peers), 5)) as pool:
+                futures = {
+                    pool.submit(
+                        self._analyze_ticker_with_semaphore,
+                        peer, n_years, n_quarters, disable_forecast,
+                    ): peer
+                    for peer in valid_peers
+                }
+                for future in as_completed(futures):
+                    peer = futures[future]
+                    try:
+                        peer_data = future.result()
+                        result.tickers[peer] = TickerAnalysis.from_dict(peer, peer_data)
+                    except Exception as exc:
+                        self.logger.error("Peer %s failed: %s", peer, exc)
 
         self.logger.info("Analysis complete.")
         return result
@@ -157,6 +173,15 @@ class TickerOrchestrator:
         )
         self.logger.info("Analysis complete. Check logs or CSV if provided.")
         return result
+
+    def _analyze_ticker_with_semaphore(
+        self, ticker: str, n_years: int, n_quarters: int, disable_forecast: bool,
+    ) -> Dict[str, Any]:
+        with self._SEC_SEMAPHORE:
+            return self._analyze_ticker_for_metrics(
+                ticker, n_years=n_years, n_quarters=n_quarters,
+                disable_forecast=disable_forecast,
+            )
 
     def _set_identity(self, identity: Optional[str]) -> None:
         if identity:
@@ -198,6 +223,9 @@ class TickerOrchestrator:
         if not disable_forecast:
             annual_fc = forecast_revenue(rev_annual, is_quarterly=False)
             quarterly_fc = forecast_revenue(rev_quarterly, is_quarterly=True)
+
+        ttm_data = compute_ttm(multi_data.get("quarterly_data", {}))
+        multi_data["ttm"] = ttm_data
 
         quarterly_info = analyze_quarterly_balance_sheets(comp, n_quarters=n_quarters)
         extra_alerts = check_additional_alerts_quarterly(quarterly_info)
@@ -260,6 +288,17 @@ class TickerOrchestrator:
             for k in ("piotroski", "beneish"):
                 if k in enhanced_yoy:
                     existing_scores[k] = enhanced_yoy[k]
+
+            # Sloan Accrual = (ΔWorkingCapital - ΔCash - D&A) / Avg Total Assets
+            ca, cl = current_metrics.get("_current_assets", 0), current_metrics.get("_current_liabilities", 0)
+            p_ca, p_cl = prior_metrics.get("_current_assets", 0), prior_metrics.get("_current_liabilities", 0)
+            delta_wc = (ca - cl) - (p_ca - p_cl)
+            delta_cash = current_metrics.get("_cash_equivalents", 0) - prior_metrics.get("_cash_equivalents", 0)
+            dep = current_metrics.get("_dep_amort", 0)
+            avg_ta = (current_metrics.get("_total_assets", 0) + prior_metrics.get("_total_assets", 0)) / 2
+            current_metrics["Sloan Accrual"] = (
+                (delta_wc - delta_cash - dep) / avg_ta if avg_ta > 0 else float("nan")
+            )
         else:
             self.logger.debug("No prior-year annual filing — skipping YoY scores.")
 

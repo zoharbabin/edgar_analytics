@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, fields as dc_fields
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, get_type_hints
 
 if TYPE_CHECKING:
@@ -264,7 +265,7 @@ class FilingSnapshot:
 
 @dataclass
 class MultiYearData:
-    """Multi-year trend data including growth rates and CAGR."""
+    """Multi-year trend data including growth rates, CAGR, and TTM."""
 
     annual_data: Dict[str, Dict[str, float]] = field(default_factory=dict)
     quarterly_data: Dict[str, Dict[str, float]] = field(default_factory=dict)
@@ -272,6 +273,7 @@ class MultiYearData:
     cagr_revenue: float = 0.0
     yoy_growth: Dict[str, Dict[str, float]] = field(default_factory=dict)
     cagr: Dict[str, float] = field(default_factory=dict)
+    ttm: Dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> MultiYearData:
@@ -282,6 +284,7 @@ class MultiYearData:
             cagr_revenue=d.get("cagr_revenue", 0.0),
             yoy_growth=d.get("yoy_growth", {}),
             cagr=d.get("cagr", {}),
+            ttm=d.get("ttm", {}),
         )
 
     def to_dict(self) -> dict:
@@ -292,6 +295,7 @@ class MultiYearData:
             "cagr_revenue": self.cagr_revenue,
             "yoy_growth": self.yoy_growth,
             "cagr": self.cagr,
+            "ttm": self.ttm,
         }
 
 
@@ -378,3 +382,49 @@ class AnalysisResult:
             "tickers": {t: ta.to_dict() for t, ta in self.tickers.items()},
         }
         return _sanitize_for_json(raw)
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """One row per ticker, columns for every snapshot metric."""
+        import pandas as pd
+
+        rows = {}
+        for ticker, ta in self.tickers.items():
+            d = ta.annual_snapshot.metrics.to_dict()
+            d.pop("Alerts", None)
+            d.pop("_IdentityCheck", None)
+            d.pop("_scores", None)
+            rows[ticker] = d
+        return pd.DataFrame(rows).T
+
+    def to_panel(self) -> "pd.DataFrame":
+        """MultiIndex DataFrame (ticker × period × metric) from multi-year data.
+
+        Standard format for factor research and quant screens.
+        """
+        import pandas as pd
+
+        records = []
+        for ticker, ta in self.tickers.items():
+            for metric, periods in ta.multiyear.annual_data.items():
+                for period, value in periods.items():
+                    records.append({
+                        "ticker": ticker, "period": period,
+                        "metric": metric, "value": value,
+                    })
+        if not records:
+            return pd.DataFrame(columns=["ticker", "period", "metric", "value"])
+        df = pd.DataFrame(records)
+        return df.pivot_table(
+            index=["ticker", "period"], columns="metric",
+            values="value", aggfunc="first",
+        )
+
+    def to_parquet(self, path: str) -> None:
+        """Write the snapshot DataFrame to Parquet format.
+
+        Requires ``pyarrow``::
+
+            pip install edgar-analytics[parquet]
+        """
+        df = self.to_dataframe()
+        df.to_parquet(Path(path))

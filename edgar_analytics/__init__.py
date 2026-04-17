@@ -73,6 +73,8 @@ from .data_utils import (
 from .orchestrator import TickerOrchestrator
 from .reporting import ReportingEngine
 from .market_data import get_market_cap, get_share_price, HAS_YFINANCE
+from .cache import CacheLayer, HAS_DISKCACHE
+from .company_facts import CompanyFactsClient
 from .scores import (
     PerShareMetrics,
     WorkingCapitalCycle,
@@ -177,4 +179,9 @@ __all__ = [
     "get_market_cap",
     "get_share_price",
     "HAS_YFINANCE",
+    # Caching
+    "CacheLayer",
+    "HAS_DISKCACHE",
+    # CompanyFacts validation
+    "CompanyFactsClient",
 ]

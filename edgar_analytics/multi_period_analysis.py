@@ -63,6 +63,10 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
     yoy_rev = compute_growth_series(annual_data.get("Revenue", {}))
     cagr_rev = compute_cagr(annual_data.get("Revenue", {}))
 
+    # Compute derived margin ratios from extracted values
+    _compute_derived_ratios(annual_data)
+    _compute_derived_ratios(quarterly_data)
+
     yoy_growth = {"Revenue": yoy_rev}
     cagr = {"Revenue": cagr_rev}
     for label, _ in _TRACKED_METRICS:
@@ -71,6 +75,10 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
         series = annual_data.get(label, {})
         yoy_growth[label] = compute_growth_series(series)
         cagr[label] = compute_cagr(series)
+    for label in ("Gross Margin %", "Operating Margin %", "Net Margin %"):
+        series = annual_data.get(label, {})
+        if series:
+            yoy_growth[label] = compute_growth_series(series)
 
     return {
         "annual_data": annual_data,
@@ -87,7 +95,31 @@ _TRACKED_METRICS = (
     ("Net Income", "net_income"),
     ("Gross Profit", "gross_profit"),
     ("Operating Income", "operating_income"),
+    ("Cost of Revenue", "cost_of_revenue"),
+    ("Interest Expense", "interest_expense"),
+    ("Income Tax Expense", "income_tax_expense"),
 )
+
+
+def _compute_derived_ratios(data: dict) -> None:
+    """Add derived margin % series from raw income statement values in-place."""
+    revenue = data.get("Revenue", {})
+    gross = data.get("Gross Profit", {})
+    op_inc = data.get("Operating Income", {})
+    ni = data.get("Net Income", {})
+
+    for label, numerator in [
+        ("Gross Margin %", gross),
+        ("Operating Margin %", op_inc),
+        ("Net Margin %", ni),
+    ]:
+        series = {}
+        for period in numerator:
+            rev = revenue.get(period)
+            if rev and rev != 0:
+                series[period] = (numerator[period] / rev) * 100.0
+        if series:
+            data[label] = series
 
 
 def extract_period_values(df: pd.DataFrame, debug_label="(unknown)") -> dict:

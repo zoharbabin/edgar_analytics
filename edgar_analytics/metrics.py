@@ -175,6 +175,23 @@ def compute_ratios_and_metrics(
     else:
         metrics["Net Debt/EBITDA"] = np.nan
 
+    # ========== QUALITY / ACCRUALS FACTORS ==========
+    metrics["Accruals Ratio"] = ((net_income - op_cf) / total_assets) if total_assets else np.nan
+    metrics["Earnings Quality"] = (op_cf / net_income) if net_income != 0 else np.nan
+    total_debt = short_debt_val + long_debt_val
+    metrics["Cash Flow Coverage"] = (op_cf / total_debt) if total_debt > 0 else np.nan
+
+    # ========== EXTENDED LEVERAGE RATIOS ==========
+    inventory_val = find_synonym_value(balance_df, SYNONYMS["inventory"], 0.0, "BS->InvQR")
+    metrics["Quick Ratio"] = ((curr_assets - inventory_val) / curr_liabs) if curr_liabs else np.nan
+    metrics["Cash Ratio"] = (cash_equiv_val / curr_liabs) if curr_liabs else np.nan
+    total_capital = total_debt + total_equity
+    metrics["Debt/Total Capital"] = (total_debt / total_capital) if total_capital > 0 else np.nan
+    metrics["Fixed Charge Coverage"] = (
+        (ebit_standard + total_leases) / (interest_exp + total_leases)
+        if (interest_exp + total_leases) > 0 else np.nan
+    )
+
     # ========== INTERNAL VALUES FOR SCORING MODELS ==========
     # Underscore-prefixed keys carry raw balance-sheet / income values needed
     # by compute_all_scores and YoY score comparisons without re-reading DataFrames.
