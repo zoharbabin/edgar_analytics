@@ -82,15 +82,19 @@ def main(ticker, peers, csv, years, quarters, log_level, debug, disable_forecast
     configure_logging(effective_level, suppress_logs=suppress_logs)
 
     orchestrator = TickerOrchestrator()
-    orchestrator.analyze_company(
-        ticker=ticker,
-        peers=list(peers),
-        csv_path=csv,
-        n_years=years,
-        n_quarters=quarters,
-        disable_forecast=disable_forecast,
-        identity=identity
-    )
+    try:
+        orchestrator.analyze_company(
+            ticker=ticker,
+            peers=list(peers),
+            csv_path=csv,
+            n_years=years,
+            n_quarters=quarters,
+            disable_forecast=disable_forecast,
+            identity=identity,
+        )
+    except ValueError as exc:
+        import logging
+        logging.getLogger("edgar_analytics.cli").error(str(exc))
 
 if __name__ == "__main__":
     main()

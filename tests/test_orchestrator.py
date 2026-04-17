@@ -12,6 +12,7 @@ from pathlib import Path
 import logging
 
 from edgar_analytics.orchestrator import TickerOrchestrator, TickerDetector
+from edgar_analytics.models import AnalysisResult, TickerAnalysis
 from edgar_analytics.reporting import ReportingEngine
 
 
@@ -33,10 +34,9 @@ def test_analyze_company_basic(caplog):
         orchestrator = TickerOrchestrator()
         orchestrator.analyze_company("AAPL", peers=[], csv_path=None)
 
-    # Check logs: we should see 'Analyzing company: AAPL' and 'Comparing AAPL with peers: []'
     logs = caplog.text
     assert "Analyzing company: AAPL" in logs, "Expected 'Analyzing company: AAPL' in logs."
-    assert "Comparing AAPL with peers: []" in logs, "Expected 'Comparing AAPL with peers: []' in logs."
+    assert "Analysis complete" in logs, "Expected 'Analysis complete' in logs."
 
 
 def test_analyze_company_with_peers():
@@ -217,3 +217,69 @@ class TestTickerDetector:
             TickerDetector.search(None)
         with pytest.raises(ValueError):
             TickerDetector.search(12345)
+
+
+# ---------------------------------------------------------------------
+#                Test for typed analyze() API
+# ---------------------------------------------------------------------
+
+
+def test_analyze_returns_typed_result():
+    """analyze() returns an AnalysisResult with TickerAnalysis entries."""
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 1000, "Alerts": ["test"]}, "filing_info": {"form_type": "10-K"}},
+            "quarterly_snapshot": {"metrics": {}, "filing_info": {}},
+            "multiyear": {"annual_data": {}, "cagr_revenue": 5.0},
+            "forecast": {"annual_rev_forecast": 1100.0},
+            "extra_alerts": ["neg FCF"],
+        }
+        orchestrator = TickerOrchestrator()
+        result = orchestrator.analyze("AAPL", peers=["MSFT"])
+
+    assert isinstance(result, AnalysisResult)
+    assert result.main_ticker == "AAPL"
+    assert result.main.ticker == "AAPL"
+    assert result.main.annual_snapshot.metrics.revenue == 1000
+    assert result.main.annual_snapshot.metrics.alerts == ("test",)
+    assert result.main.annual_snapshot.filing_info.form_type == "10-K"
+    assert result.main.multiyear.cagr_revenue == 5.0
+    assert result.main.forecast.annual_rev_forecast == 1100.0
+    assert result.main.extra_alerts == ("neg FCF",)
+    assert "MSFT" in result.peers
+
+
+def test_analyze_invalid_ticker_raises():
+    """analyze() raises ValueError for invalid ticker."""
+    orchestrator = TickerOrchestrator()
+    with pytest.raises(ValueError, match="Invalid ticker"):
+        orchestrator.analyze("@@@")
+
+
+def test_analyze_company_returns_result():
+    """analyze_company() now returns an AnalysisResult (not None)."""
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze, \
+         patch("edgar_analytics.reporting.ReportingEngine.summarize_metrics_table"):
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 500, "Alerts": []}, "filing_info": {}},
+            "extra_alerts": [],
+        }
+        orchestrator = TickerOrchestrator()
+        result = orchestrator.analyze_company("AAPL", peers=[])
+
+    assert isinstance(result, AnalysisResult)
+    assert result.main.annual_snapshot.metrics.revenue == 500
+
+
+def test_public_analyze_function():
+    """The top-level ea.analyze() convenience function works."""
+    import edgar_analytics as ea
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 42, "Alerts": []}, "filing_info": {}},
+            "extra_alerts": [],
+        }
+        result = ea.analyze("AAPL")
+
+    assert isinstance(result, ea.AnalysisResult)
+    assert result.main.annual_snapshot.metrics.revenue == 42

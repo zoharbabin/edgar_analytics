@@ -82,7 +82,7 @@ def test_cli_with_peers(
 
     result = runner.invoke(main, ["AAPL", "MSFT", "GOOGL"])
     assert result.exit_code == 0
-    assert "Comparing AAPL with peers: ['MSFT', 'GOOGL']" in caplog.text
+    assert "Analyzing company: AAPL" in caplog.text
 
 
 @patch("edgar_analytics.orchestrator.set_identity")
@@ -130,6 +130,7 @@ def test_cli_invalid_ticker(
     mock_MPACompany.return_value = mock_company
     mock_MultiFinancials.return_value = mock_multifin
 
-    result = runner.invoke(main, ["@BADTICKER"])
+    with caplog.at_level(logging.ERROR, logger="edgar_analytics.cli"):
+        result = runner.invoke(main, ["@BADTICKER"])
     assert result.exit_code == 0
-    assert "Invalid main ticker: @BADTICKER" in caplog.text
+    assert "Invalid ticker symbol" in caplog.text

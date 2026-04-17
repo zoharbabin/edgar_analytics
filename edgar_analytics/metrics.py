@@ -13,6 +13,7 @@ import pandas as pd
 from edgar import Company
 
 from .config import ALERTS_CONFIG
+from .scores import compute_all_scores, run_dqc_checks
 from .synonyms import SYNONYMS
 from .synonyms_utils import (
     find_synonym_value,
@@ -68,10 +69,12 @@ def compute_ratios_and_metrics(
     # ========== DEPRECIATION & D&A-IN-COGS ADJUSTMENT ==========
     dep_amort = find_synonym_value(income_df, SYNONYMS["depreciation_amortization"], 0.0, "INC->DepAmort")
     dep_amort = flip_sign_if_negative_expense(dep_amort, "depreciation_amortization")
+    orig_cost_rev = cost_rev
     cost_rev, dep_amort = adjust_for_dep_in_cogs(income_df, cost_rev, dep_amort)
+    dep_in_cogs_adjusted = cost_rev != orig_cost_rev
 
-    if pd.isna(gross_profit):
-        gross_profit = revenue - cost_rev if revenue != 0.0 else 0.0
+    if pd.isna(gross_profit) or dep_in_cogs_adjusted:
+        gross_profit = revenue - cost_rev
 
     metrics["Revenue"] = revenue
     metrics["CostOfRev"] = cost_rev
@@ -81,10 +84,15 @@ def compute_ratios_and_metrics(
     metrics["Net Income"] = net_income
     metrics["Net Margin %"] = ((net_income / revenue) * 100.0) if revenue else np.nan
 
-    operating_income_approx = gross_profit - op_exp
-    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else np.nan
-    metrics["EBIT (approx)"] = operating_income_approx
-    metrics["EBITDA (approx)"] = operating_income_approx + dep_amort
+    reported_op_income = find_synonym_value(income_df, SYNONYMS["operating_income"], np.nan, "INC->OpIncome")
+    if pd.notna(reported_op_income):
+        operating_income = reported_op_income
+    else:
+        operating_income = gross_profit - op_exp
+    metrics["Operating Income"] = operating_income
+    metrics["Operating Margin %"] = ((operating_income / revenue) * 100.0) if revenue else np.nan
+    metrics["EBIT (approx)"] = operating_income
+    metrics["EBITDA (approx)"] = operating_income + dep_amort
 
     # ========== BALANCE SHEET ==========
     curr_assets = find_synonym_value(balance_df, SYNONYMS["current_assets"], 0.0, "BS->CurrAssets")
@@ -112,7 +120,7 @@ def compute_ratios_and_metrics(
     metrics["Free Cash Flow"] = free_cf
 
     # ========== ROE / ROA ==========
-    if total_equity > 0:
+    if total_equity != 0:
         metrics["ROE %"] = (net_income / total_equity) * 100.0
     else:
         metrics["ROE %"] = np.nan
@@ -145,12 +153,6 @@ def compute_ratios_and_metrics(
     gross_debt = short_debt_val + long_debt_val + total_leases
     net_debt = gross_debt - cash_equiv_val - st_invest_val - lt_invest_val
     metrics["Net Debt"] = net_debt
-
-    ebitda_approx = metrics["EBITDA (approx)"]
-    if pd.notna(ebitda_approx) and ebitda_approx > 0:
-        metrics["Net Debt/EBITDA"] = net_debt / ebitda_approx
-    else:
-        metrics["Net Debt/EBITDA"] = np.nan
     metrics["Lease Liabilities Ratio %"] = ((total_leases / total_assets) * 100.0) if total_assets else np.nan
 
     # ========== INTEREST EXPENSE / TAX EXPENSE / STANDARD EBIT & EBITDA ==========
@@ -159,17 +161,58 @@ def compute_ratios_and_metrics(
     metrics["Interest Expense"] = interest_exp
 
     income_tax_val = find_synonym_value(income_df, SYNONYMS["income_tax_expense"], 0.0, "INC->TaxExpense")
-    # Tax expense is kept as-is: positive = expense, negative = benefit (e.g. deferred tax).
-    # EBIT = NI + Interest + Tax uses the signed value for financial accuracy.
     metrics["Income Tax Expense"] = income_tax_val
 
     ebit_standard = net_income + interest_exp + income_tax_val
     metrics["EBIT (standard)"] = ebit_standard
-    metrics["EBITDA (standard)"] = ebit_standard + dep_amort
+    ebitda_standard = ebit_standard + dep_amort
+    metrics["EBITDA (standard)"] = ebitda_standard
     metrics["Interest Coverage"] = (ebit_standard / interest_exp) if interest_exp > 0.0 else np.nan
+
+    # Net Debt/EBITDA uses the standard (bottom-up) EBITDA for consistency
+    if pd.notna(ebitda_standard) and ebitda_standard > 0:
+        metrics["Net Debt/EBITDA"] = net_debt / ebitda_standard
+    else:
+        metrics["Net Debt/EBITDA"] = np.nan
+
+    # ========== INTERNAL VALUES FOR SCORING MODELS ==========
+    # Underscore-prefixed keys carry raw balance-sheet / income values needed
+    # by compute_all_scores and YoY score comparisons without re-reading DataFrames.
+    sga_val = find_synonym_value(income_df, SYNONYMS["general_administrative"], 0.0, "INC->SGA")
+    sga_val = flip_sign_if_negative_expense(sga_val, "general_administrative")
+    ppe_val = find_synonym_value(balance_df, SYNONYMS["ppe_net"], 0.0, "BS->PPE")
+    shares_out = find_synonym_value(balance_df, SYNONYMS["common_shares_outstanding"], 0.0, "BS->Shares")
+    retained_val = find_synonym_value(balance_df, SYNONYMS["retained_earnings"], 0.0, "BS->RetainedEarnings")
+    income_before_taxes = find_synonym_value(income_df, SYNONYMS["income_before_taxes"], np.nan, "INC->PreTax")
+
+    metrics["_total_assets"] = total_assets
+    metrics["_total_liabilities"] = total_liabs
+    metrics["_total_equity"] = total_equity
+    metrics["_current_assets"] = curr_assets
+    metrics["_current_liabilities"] = curr_liabs
+    metrics["_short_term_debt"] = short_debt_val
+    metrics["_long_term_debt"] = long_debt_val
+    metrics["_cash_equivalents"] = cash_equiv_val
+    metrics["_accounts_receivable"] = find_synonym_value(balance_df, SYNONYMS["accounts_receivable"], 0.0, "BS->AR")
+    metrics["_inventory"] = find_synonym_value(balance_df, SYNONYMS["inventory"], 0.0, "BS->Inv")
+    metrics["_accounts_payable"] = find_synonym_value(balance_df, SYNONYMS["accounts_payable"], 0.0, "BS->AP")
+    metrics["_retained_earnings"] = retained_val
+    metrics["_ppe_net"] = ppe_val
+    metrics["_shares_outstanding"] = shares_out
+    metrics["_dep_amort"] = dep_amort
+    metrics["_sga"] = sga_val
+    metrics["_short_term_investments"] = st_invest_val
+    metrics["_capex"] = capex_val
+    metrics["_income_before_taxes"] = income_before_taxes if pd.notna(income_before_taxes) else net_income + income_tax_val
+
+    # ========== ACCOUNTING IDENTITY VALIDATION ==========
+    identity_check = _validate_accounting_identity(total_assets, total_liabs, total_equity)
+    metrics["_IdentityCheck"] = identity_check
 
     # ========== ALERTS ==========
     alerts = []
+    if identity_check and identity_check != "ok":
+        alerts.append(identity_check)
     net_margin = metrics["Net Margin %"]
     if pd.notna(net_margin) and net_margin < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
         alerts.append(f"Net margin below {ALERTS_CONFIG['NEGATIVE_MARGIN']}% (negative)")
@@ -181,7 +224,7 @@ def compute_ratios_and_metrics(
         alerts.append("Negative shareholders' equity (potential insolvency)")
 
     roe = metrics["ROE %"]
-    if pd.notna(roe) and roe < ALERTS_CONFIG["LOW_ROE"]:
+    if pd.notna(roe) and total_equity > 0 and roe < ALERTS_CONFIG["LOW_ROE"]:
         alerts.append(f"ROE < {ALERTS_CONFIG['LOW_ROE']}%")
     roa = metrics["ROA %"]
     if pd.notna(roa) and roa < ALERTS_CONFIG["LOW_ROA"]:
@@ -203,7 +246,17 @@ def compute_ratios_and_metrics(
     if pd.notna(interest_cov) and interest_cov < interest_cov_threshold:
         alerts.append(f"Interest coverage below {interest_cov_threshold} => potential default risk.")
 
+    # ========== DQC SIGN CHECKS ==========
+    for stmt_df, label in [(balance_df, "BS"), (income_df, "INC")]:
+        dqc_warnings = run_dqc_checks(stmt_df, debug_label=label)
+        alerts.extend(dqc_warnings)
+
     metrics["Alerts"] = alerts
+
+    # ========== SCORING MODELS ==========
+    scores = compute_all_scores(metrics, balance_df, income_df, cash_df)
+    metrics["_scores"] = scores
+
     return metrics
 
 
@@ -236,6 +289,25 @@ def adjust_for_dep_in_cogs(
     return cost_of_revenue, dep_amort
 
 
+def _validate_accounting_identity(
+    total_assets: float, total_liabilities: float, total_equity: float
+) -> str:
+    """Check Assets = Liabilities + Equity within 1% tolerance.
+    Returns 'ok' if valid, a warning string if not, or '' if data is missing."""
+    expected = total_liabilities + total_equity
+    if total_assets == 0.0 and expected == 0.0:
+        return ""
+    denominator = max(abs(total_assets), abs(expected), 1.0)
+    diff_pct = abs(total_assets - expected) / denominator * 100.0
+    if diff_pct > 1.0:
+        return (
+            f"Accounting identity mismatch: Assets ({total_assets:,.0f}) != "
+            f"Liabilities ({total_liabilities:,.0f}) + Equity ({total_equity:,.0f}), "
+            f"diff={diff_pct:.1f}%"
+        )
+    return "ok"
+
+
 def get_filing_info(filing_obj) -> dict:
     """Extract form, filing_date, company name, and accession_no from an edgar.Filing object."""
     fields = {"form_type": "form", "filed_date": "filing_date", "company": "company", "accession_no": "accession_no"}
@@ -244,8 +316,8 @@ def get_filing_info(filing_obj) -> dict:
     return {k: getattr(filing_obj, attr, None) or "Unknown" for k, attr in fields.items()}
 
 
-ANNUAL_FORM_TYPES = ("10-K", "20-F")
-QUARTERLY_FORM_TYPES = ("10-Q",)
+ANNUAL_FORM_TYPES = ("10-K", "10-K/A", "20-F", "20-F/A")
+QUARTERLY_FORM_TYPES = ("10-Q", "10-Q/A")
 
 
 def get_filing_snapshot_with_fallback(comp: Company, form_types: tuple) -> dict:
@@ -295,3 +367,31 @@ def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
     result["metrics"] = metrics
     result["filing_info"] = filing_info
     return result
+
+
+def get_prior_annual_metrics(comp: Company) -> dict:
+    """Fetch the second-most-recent annual filing's metrics for YoY comparisons.
+
+    Returns an empty dict if no prior-year filing is available.
+    """
+    tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
+    for ft in ANNUAL_FORM_TYPES:
+        try:
+            filings = comp.get_filings(form=ft, is_xbrl=True).head(2)
+            if filings is None or len(filings) < 2:
+                continue
+            prior_filing = filings[1]
+            fo = prior_filing.obj()
+            if not hasattr(fo, "financials"):
+                continue
+            fin = fo.financials
+            bs = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "balance_sheet"), f"{tkr}-prior-BS"), f"{tkr}-prior-BS")
+            inc = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-prior-INC"), f"{tkr}-prior-INC")
+            cf = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-prior-CF"), f"{tkr}-prior-CF")
+            metrics = compute_ratios_and_metrics(bs, inc, cf)
+            if metrics:
+                logger.info("%s: Loaded prior-year metrics from %s for YoY scores.", tkr, ft)
+                return metrics
+        except Exception as exc:
+            logger.debug("%s: Failed to get prior %s filing: %s", tkr, ft, exc)
+    return {}

@@ -104,7 +104,7 @@ class ReportingEngine:
         # Reorder columns
         ordered_cols = [
             "_FormType", "_FilingDate", "Revenue", "Net Income", "Gross Margin %",
-            "Net Margin %", "Operating Expenses", "Debt-to-Equity", "Equity Ratio %",
+            "Net Margin %", "Operating Income", "Operating Expenses", "Debt-to-Equity", "Equity Ratio %",
             "ROE %", "ROA %", "Free Cash Flow", "EBITDA (approx)", "Alerts",
             "Intangible Ratio %", "Goodwill Ratio %", "Tangible Equity",
             "Net Debt", "Net Debt/EBITDA", "Lease Liabilities Ratio %"
@@ -138,7 +138,7 @@ class ReportingEngine:
 
         ordered_cols = [
             "_FormType", "_FilingDate", "Revenue", "Net Income", "Gross Margin %",
-            "Net Margin %", "Operating Expenses", "Debt-to-Equity", "Equity Ratio %",
+            "Net Margin %", "Operating Income", "Operating Expenses", "Debt-to-Equity", "Equity Ratio %",
             "ROE %", "ROA %", "Free Cash Flow", "EBITDA (approx)", "Alerts",
             "Intangible Ratio %", "Goodwill Ratio %", "Tangible Equity",
             "Net Debt", "Net Debt/EBITDA", "Lease Liabilities Ratio %"

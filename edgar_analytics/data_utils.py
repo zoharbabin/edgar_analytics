@@ -111,7 +111,10 @@ def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
 
 
 def make_numeric_df(df: pd.DataFrame, debug_label="(unknown)") -> pd.DataFrame:
-    """Converts columns to numeric where possible. Returns a new DataFrame."""
+    """Converts columns to numeric where possible and deduplicates index rows.
+
+    When duplicate index labels exist (common in XBRL filings with multiple
+    frames), the row with the largest absolute sum is kept."""
     if not isinstance(df, pd.DataFrame) or df.empty:
         logger.debug("make_numeric_df(%s): invalid or empty DF -> skip", debug_label)
         return df
@@ -119,6 +122,14 @@ def make_numeric_df(df: pd.DataFrame, debug_label="(unknown)") -> pd.DataFrame:
     pre_non_null = df.notnull().sum().sum()
     numeric_df = df.apply(pd.to_numeric, errors="coerce")
     post_non_null = numeric_df.notnull().sum().sum()
+
+    if numeric_df.index.duplicated().any():
+        n_dups = numeric_df.index.duplicated(keep=False).sum()
+        numeric_df["_abs_sum"] = numeric_df.abs().sum(axis=1, skipna=True)
+        numeric_df = numeric_df.sort_values("_abs_sum", ascending=False)
+        numeric_df = numeric_df[~numeric_df.index.duplicated(keep="first")]
+        numeric_df = numeric_df.drop(columns=["_abs_sum"])
+        logger.debug("make_numeric_df(%s): deduplicated %d rows with duplicate labels", debug_label, n_dups)
 
     logger.debug(
         "make_numeric_df(%s): coerced to numeric. Non-null before=%d, after=%d. shape=%s",

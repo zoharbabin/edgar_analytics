@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 _EXPENSE_LABELS = frozenset((
     "cost_of_revenue", "operating_expenses", "rnd_expenses",
     "interest_expense", "depreciation_amortization",
+    "general_administrative",
 ))
 
 

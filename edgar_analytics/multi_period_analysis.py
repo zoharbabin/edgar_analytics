@@ -13,7 +13,7 @@ from .logging_utils import get_logger
 from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
 from .synonyms_utils import find_synonym_value, find_best_synonym_row, compute_capex_for_column
 from .config import ALERTS_CONFIG
-from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES
+from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES, QUARTERLY_FORM_TYPES
 
 logger = get_logger(__name__)
 
@@ -43,17 +43,19 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
     else:
         logger.warning("%s: No annual income statements found (tried %s)", ticker, ", ".join(ANNUAL_FORM_TYPES))
 
-    # 10-Q
-    try:
-        filings_10q = comp.get_filings(form="10-Q", is_xbrl=True).head(n_quarters)
-        multi_10q = MultiFinancials(filings_10q)
-        inc_10q = _get_financial_statement(multi_10q, "income_statement")
-        if inc_10q is not None:
-            quarterly_inc_df = make_numeric_df(ensure_dataframe(inc_10q, f"{ticker}-multi10Q-INC"), f"{ticker}-multi10Q-INC")
-        else:
-            logger.warning("%s: No multi 10-Q income statements found", ticker)
-    except Exception as e:
-        logger.error("Error retrieving multi 10-Q for %s: %s", ticker, e, exc_info=True)
+    for qtr_form in QUARTERLY_FORM_TYPES:
+        try:
+            filings_10q = comp.get_filings(form=qtr_form, is_xbrl=True).head(n_quarters)
+            multi_10q = MultiFinancials(filings_10q)
+            inc_10q = _get_financial_statement(multi_10q, "income_statement")
+            if inc_10q is not None:
+                quarterly_inc_df = make_numeric_df(ensure_dataframe(inc_10q, f"{ticker}-multi{qtr_form}-INC"), f"{ticker}-multi{qtr_form}-INC")
+                logger.info("%s: Found multi-quarter income statements via %s", ticker, qtr_form)
+                break
+        except Exception as e:
+            logger.debug("No multi %s for %s: %s", qtr_form, ticker, e)
+    else:
+        logger.warning("%s: No quarterly income statements found (tried %s)", ticker, ", ".join(QUARTERLY_FORM_TYPES))
 
     annual_data = extract_period_values(annual_inc_df, f"{ticker}-ANN")
     quarterly_data = extract_period_values(quarterly_inc_df, f"{ticker}-QTR")
@@ -168,7 +170,16 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
     results = {"inventory": {}, "receivables": {}, "free_cf": {}}
     tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
     try:
-        filings_10q = comp.get_filings(form="10-Q", is_xbrl=True).head(n_quarters)
+        filings_10q = None
+        for qtr_form in QUARTERLY_FORM_TYPES:
+            try:
+                filings_10q = comp.get_filings(form=qtr_form, is_xbrl=True).head(n_quarters)
+                if filings_10q:
+                    break
+            except Exception:
+                continue
+        if not filings_10q:
+            return results
         multi_10q = MultiFinancials(filings_10q)
         bs_10q = _get_financial_statement(multi_10q, "balance_sheet")
         cf_10q = _get_financial_statement(multi_10q, "cash_flow_statement")

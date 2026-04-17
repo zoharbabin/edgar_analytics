@@ -127,3 +127,14 @@ def test_parse_period_label_quarter_sorting():
 def test_custom_float_format_nan():
     assert custom_float_format(float("nan")) == "N/A"
     assert custom_float_format(float("inf")) == "N/A"
+
+
+def test_make_numeric_df_deduplicates_index():
+    """When duplicate index labels exist, keep the row with largest absolute values."""
+    df = pd.DataFrame(
+        {"2023": [100, 500, 200], "2024": [110, 550, 210]},
+        index=["Revenue", "Revenue", "Net Income"],
+    )
+    result = make_numeric_df(df, debug_label="testDedup")
+    assert not result.index.duplicated().any()
+    assert result.loc["Revenue", "2023"] == 500
