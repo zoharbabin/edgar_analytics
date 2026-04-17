@@ -421,3 +421,36 @@ def test_cross_validate_empty_metrics():
     """_cross_validate does nothing for empty metrics."""
     orchestrator = TickerOrchestrator(enable_cache=False)
     orchestrator._cross_validate("AAPL", {"metrics": {}})
+
+
+# ---------------------------------------------------------------------
+#         alerts_config threading
+# ---------------------------------------------------------------------
+
+def test_alerts_config_reaches_snapshot():
+    """alerts_config threaded from analyze() reaches get_filing_snapshot_with_fallback."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    mock_comp = MagicMock()
+    snap = {"metrics": {"Revenue": 500, "Alerts": []}, "filing_info": {}}
+
+    with patch("edgar_analytics.orchestrator.get_filing_snapshot_with_fallback", return_value=snap) as mock_fn:
+        orchestrator._cached_snapshot(
+            mock_comp, "AAPL", ("10-K",), is_current=False,
+            alerts_config={"HIGH_LEVERAGE": 99.0},
+        )
+
+    _, kwargs = mock_fn.call_args
+    assert kwargs["alerts_config"] == {"HIGH_LEVERAGE": 99.0}
+
+
+def test_analyze_threads_alerts_config():
+    """analyze(alerts_config=...) forwards to _cached_snapshot calls."""
+    with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
+        mock_analyze.return_value = {
+            "annual_snapshot": {"metrics": {"Revenue": 42, "Alerts": []}, "filing_info": {}},
+            "extra_alerts": [],
+        }
+        orchestrator = TickerOrchestrator(enable_cache=False)
+        orchestrator.analyze("AAPL", alerts_config={"HIGH_LEVERAGE": 50.0})
+
+    assert orchestrator._alerts_config == {"HIGH_LEVERAGE": 50.0}

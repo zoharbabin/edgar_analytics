@@ -341,16 +341,20 @@ ANNUAL_FORM_TYPES = ("10-K", "10-K/A", "20-F", "20-F/A")
 QUARTERLY_FORM_TYPES = ("10-Q", "10-Q/A")
 
 
-def get_filing_snapshot_with_fallback(comp: Company, form_types: tuple) -> dict:
+def get_filing_snapshot_with_fallback(
+    comp: Company, form_types: tuple, alerts_config: Optional[dict] = None,
+) -> dict:
     """Try each form type in order, returning the first successful snapshot."""
     for ft in form_types:
-        snap = get_single_filing_snapshot(comp, ft)
+        snap = get_single_filing_snapshot(comp, ft, alerts_config=alerts_config)
         if snap.get("metrics"):
             return snap
     return {"metrics": {}, "filing_info": {}}
 
 
-def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
+def get_single_filing_snapshot(
+    comp: Company, form_type: str, alerts_config: Optional[dict] = None,
+) -> dict:
     """
     Retrieve the latest 'form_type' filing for a given company,
     parse metrics, and attach filing info. If missing or any error, return empty structures.
@@ -384,7 +388,7 @@ def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
     inc_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-{form_type}-INC"), f"{tkr}-{form_type}-INC")
     cf_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-{form_type}-CF"), f"{tkr}-{form_type}-CF")
 
-    metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
+    metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df, alerts_config=alerts_config)
     result["metrics"] = metrics
     result["filing_info"] = filing_info
     return result

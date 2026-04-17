@@ -87,6 +87,7 @@ class TickerOrchestrator:
         self.reporting_engine = ReportingEngine()
         self._cache = CacheLayer(directory=cache_dir or ".edgar_cache", enabled=enable_cache)
         self._facts_client = CompanyFactsClient()
+        self._alerts_config: Optional[Dict[str, Any]] = None
 
     def analyze(
         self,
@@ -228,8 +229,14 @@ class TickerOrchestrator:
         except (ValueError, KeyError, OSError) as exc:
             raise TickerFetchError(f"Cannot resolve ticker {ticker!r}: {exc}") from exc
 
-        annual_snap = self._cached_snapshot(comp, ticker, ANNUAL_FORM_TYPES, is_current=False)
-        quarterly_snap = self._cached_snapshot(comp, ticker, QUARTERLY_FORM_TYPES, is_current=True)
+        annual_snap = self._cached_snapshot(
+            comp, ticker, ANNUAL_FORM_TYPES, is_current=False,
+            alerts_config=self._alerts_config,
+        )
+        quarterly_snap = self._cached_snapshot(
+            comp, ticker, QUARTERLY_FORM_TYPES, is_current=True,
+            alerts_config=self._alerts_config,
+        )
 
         self._cross_validate(ticker, annual_snap)
 
@@ -268,6 +275,7 @@ class TickerOrchestrator:
 
     def _cached_snapshot(
         self, comp: Company, ticker: str, form_types: tuple, is_current: bool,
+        alerts_config: Optional[Dict[str, Any]] = None,
     ) -> dict:
         """Fetch a filing snapshot, using cache when available."""
         cache_ns = "snapshot"
@@ -277,7 +285,7 @@ class TickerOrchestrator:
             self.logger.debug("Cache hit for %s %s snapshot", ticker, form_label)
             return cached
 
-        snap = get_filing_snapshot_with_fallback(comp, form_types)
+        snap = get_filing_snapshot_with_fallback(comp, form_types, alerts_config=alerts_config)
 
         if snap.get("metrics"):
             accession = snap.get("filing_info", {}).get("accession_no", "")
