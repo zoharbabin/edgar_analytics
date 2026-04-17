@@ -95,7 +95,7 @@ def compute_ratios_and_metrics(
     cash_df: pd.DataFrame,
     alerts_config: Optional[dict] = None,
     is_financial: bool = False,
-) -> dict:
+) -> RawMetrics:
     """
     Compute key financial ratios from the provided DataFrames (Balance, Income, Cash Flow).
     Includes expanded IFRS/GAAP coverage:

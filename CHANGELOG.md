@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.1] - 2026-04-17
+
+### Fixes
+- **P/E ratio uses diluted EPS**: `compute_valuation_ratios()` now computes P/E as `share_price / eps_diluted` when diluted EPS is available, falling back to `market_cap / net_income` otherwise. Standard practice for conservative valuation.
+- **`RawMetrics` return annotation**: `compute_ratios_and_metrics()` now returns `-> RawMetrics` so type checkers enforce the TypedDict schema at the function boundary.
+- **`share_price` parameter active**: The `share_price` parameter in `compute_valuation_ratios()` is now used for diluted-EPS-based P/E (previously accepted but unused).
+
+### Testing
+- Updated valuation ratio tests: P/E diluted-EPS path + market_cap/NI fallback path both covered.
+- Test count: 343 → 344 (+1 test).
+
 ## [0.8.0] - 2026-04-17
 
 ### Financial Intelligence

@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from edgar_analytics.market_data import get_market_cap, get_share_price, compute_valuation_ratios, ValuationRatios
+from edgar_analytics.scores import PerShareMetrics
 
 
 class TestGetMarketCap:
@@ -65,7 +66,7 @@ class TestGetSharePrice:
 
 
 class TestValuationRatios:
-    def _metrics(self, **overrides):
+    def _metrics(self, eps_diluted=float("nan"), **overrides):
         m = {
             "Net Income": 100_000,
             "EBITDA (standard)": 150_000,
@@ -73,11 +74,18 @@ class TestValuationRatios:
             "_short_term_debt": 50_000,
             "_long_term_debt": 200_000,
             "_cash_equivalents": 100_000,
+            "_scores": {
+                "per_share": PerShareMetrics(eps_diluted=eps_diluted),
+            },
         }
         m.update(overrides)
         return m
 
-    def test_pe_ratio(self):
+    def test_pe_uses_diluted_eps(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics(eps_diluted=17.5))
+        assert v.pe_ratio == pytest.approx(10.0)
+
+    def test_pe_falls_back_to_market_cap_over_ni(self):
         v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
         assert v.pe_ratio == pytest.approx(10.0)
 
@@ -90,8 +98,8 @@ class TestValuationRatios:
         ev = 1_000_000 + 50_000 + 200_000 - 100_000
         assert v.ev_ebitda == pytest.approx(ev / 150_000)
 
-    def test_earnings_yield(self):
-        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
+    def test_earnings_yield_from_diluted_pe(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics(eps_diluted=17.5))
         assert v.earnings_yield == pytest.approx(0.1)
 
     def test_nan_when_no_market_cap(self):

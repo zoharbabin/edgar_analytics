@@ -83,6 +83,9 @@ def compute_valuation_ratios(
 
     All inputs come from the caller — no network calls are made here.
     Returns NaN for anything that cannot be computed.
+
+    P/E uses diluted EPS (``share_price / eps_diluted``) when available,
+    falling back to ``market_cap / net_income`` otherwise.
     """
     net_income = metrics.get("Net Income", 0.0)
     total_equity = metrics.get("_total_equity", 0.0)
@@ -91,9 +94,15 @@ def compute_valuation_ratios(
     long_debt = metrics.get("_long_term_debt", 0.0)
     cash = metrics.get("_cash_equivalents", 0.0)
 
-    pe = (market_cap / net_income) if (
-        not math.isnan(market_cap) and net_income > 0
-    ) else _NAN
+    scores = metrics.get("_scores", {})
+    per_share = scores.get("per_share", None)
+    eps_diluted = getattr(per_share, "eps_diluted", _NAN)
+
+    pe = _NAN
+    if not math.isnan(share_price) and not math.isnan(eps_diluted) and eps_diluted > 0:
+        pe = share_price / eps_diluted
+    elif not math.isnan(market_cap) and net_income > 0:
+        pe = market_cap / net_income
 
     pb = (market_cap / total_equity) if (
         not math.isnan(market_cap) and total_equity > 0
