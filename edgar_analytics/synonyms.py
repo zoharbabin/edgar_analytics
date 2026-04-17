@@ -15,6 +15,8 @@ SYNONYMS = {
         # US GAAP
         "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
         "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
+        "us-gaap_RevenueFromContractWithCustomerIncludingAssessedTax",
         "us-gaap:SalesRevenueNet",
         "us-gaap_SalesRevenueNet",
         "us-gaap:Revenues",
@@ -60,7 +62,6 @@ SYNONYMS = {
         # Common textual labels
         "Cost of revenue",
         "Cost of sales",
-        "CostOfSalesPolicyTextBlock",
         "Cost of Sales",
         "Cost of sales (including depreciation)",
     ],
@@ -91,7 +92,6 @@ SYNONYMS = {
         # Common textual labels
         "R&D",
         "Research and development",
-        "ResearchAndDevelopmentExpensePolicy",
     ],
 
     # ======================
@@ -106,7 +106,6 @@ SYNONYMS = {
         "Selling and marketing",
         "Marketing and advertising",
         "MarketingAndAdvertisingExpense",
-        "AdvertisingCostsPolicyTextBlock",
     ],
 
     # ======================
@@ -320,7 +319,6 @@ SYNONYMS = {
         "Inventory, finished goods",
         "Finished goods inventory",
         "Inventory, raw materials",
-        "us-gaap_InventoryDisclosureTextBlock",
     ],
 
     # ======================
@@ -513,9 +511,13 @@ SYNONYMS = {
     "long_term_debt": [
         "us-gaap:LongTermDebt",
         "us-gaap_LongTermDebt",
+        "us-gaap:LongTermDebtNoncurrent",
+        "us-gaap_LongTermDebtNoncurrent",
         # IFRS
         "ifrs-full:BorrowingsNoncurrent",
         # Common textual
+        "Long-term debt",
+        "Long-term debt, net of current portion",
         "Term debt",
         "Notes payable",
         "Bond obligations",
@@ -565,12 +567,17 @@ SYNONYMS = {
     "total_equity": [
         "us-gaap:StockholdersEquity",
         "us-gaap_StockholdersEquity",
+        "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "us-gaap_StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
         # IFRS
         "ifrs-full:Equity",
+        "ifrs-full:EquityAttributableToOwnersOfParent",
         # Common textual
         "Total shareholders’ equity",
+        "Total equity",
         "Equity",
-        "Shareholders' equity",
+        "Shareholders’ equity",
+        "Stockholders’ equity, including portion attributable to noncontrolling interest",
     ],
 
     # ======================

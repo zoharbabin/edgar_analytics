@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.0] - 2026-04-17
+
+### XBRL Coverage (High Priority)
+- **NCI equity synonym**: Added `StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest` to `total_equity`. Companies with noncontrolling interests (subsidiaries) previously got equity=0, breaking D/E, ROE, Altman Z, and accounting identity checks.
+- **Revenue with assessed tax**: Added `RevenueFromContractWithCustomerIncludingAssessedTax` to `revenue`. Telecom/utility filers that include assessed taxes in revenue previously got revenue=0.
+- **Long-term debt noncurrent**: Added `LongTermDebtNoncurrent` to `long_term_debt`. Companies reporting only the noncurrent portion previously got LTD=0, understating leverage ratios.
+- **TextBlock tag cleanup**: Removed `CostOfSalesPolicyTextBlock`, `InventoryDisclosureTextBlock`, `AdvertisingCostsPolicyTextBlock`, and `ResearchAndDevelopmentExpensePolicy` from quantitative synonym groups. These are disclosure-only tags that could match before real numeric tags.
+
+### Pipeline Fixes
+- **alerts_config threaded to quarterly alerts**: `check_additional_alerts_quarterly()` now accepts `alerts_config` parameter, threaded from orchestrator. User overrides for `SUSTAINED_NEG_FCF_QUARTERS`, `INVENTORY_SPIKE_THRESHOLD`, `RECEIVABLE_SPIKE_THRESHOLD` are no longer silently ignored.
+- **CompanyFacts multi-concept validation**: Cross-validation now tries `RevenueFromContractWithCustomerExcludingAssessedTax` before `Revenues`, and includes the NCI equity variant. Covers post-2018 filers that don't use the older `us-gaap:Revenues` tag.
+- **HTTP retry with backoff**: `CompanyFactsClient._get_json()` retries on SEC 429/503 with exponential backoff (1s → 2s → 4s). 403 (IP blocklist) is not retried.
+
+### Testing
+- Added synonym integrity tests: no TextBlock in quantitative groups, NCI equity present, assessed-tax revenue present, LTD noncurrent present.
+- Added CompanyFacts retry/backoff tests (429 retries, 403 does not).
+- Added CompanyFacts multi-concept fallback tests.
+- Added alerts_config override test for `check_additional_alerts_quarterly`.
+- Test count: 346 → 355 (+9 tests).
+
 ## [0.8.2] - 2026-04-17
 
 ### Financial Accuracy (Significant)

@@ -72,3 +72,39 @@ class TestSynonymsIntegrity:
         for key, tags in SYNONYMS.items():
             for tag in tags:
                 assert tag != "", f"Empty string tag in {key}"
+
+    def test_no_textblock_in_quantitative_synonyms(self):
+        """TextBlock tags are disclosure-only and must not appear in numeric synonym groups."""
+        quantitative_keys = [
+            "revenue", "cost_of_revenue", "net_income", "operating_income",
+            "total_assets", "total_liabilities", "total_equity",
+            "current_assets", "current_liabilities", "inventory",
+            "accounts_receivable", "accounts_payable", "long_term_debt",
+            "short_term_debt", "cash_equivalents", "rnd_expenses",
+            "sales_marketing", "general_administrative", "capital_expenditures",
+            "depreciation_amortization", "interest_expense", "income_tax_expense",
+            "cash_flow_operating", "cash_flow_investing", "cash_flow_financing",
+        ]
+        for key in quantitative_keys:
+            for tag in SYNONYMS.get(key, []):
+                assert "TextBlock" not in tag, (
+                    f"TextBlock tag {tag!r} in quantitative synonym {key!r}"
+                )
+
+    def test_revenue_includes_assessed_tax_variant(self):
+        tags = SYNONYMS["revenue"]
+        assert any("IncludingAssessedTax" in t for t in tags), (
+            "Missing RevenueFromContractWithCustomerIncludingAssessedTax"
+        )
+
+    def test_equity_includes_nci_variant(self):
+        tags = SYNONYMS["total_equity"]
+        assert any("NoncontrollingInterest" in t for t in tags), (
+            "Missing StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"
+        )
+
+    def test_long_term_debt_includes_noncurrent(self):
+        tags = SYNONYMS["long_term_debt"]
+        assert any("Noncurrent" in t for t in tags), (
+            "Missing LongTermDebtNoncurrent"
+        )

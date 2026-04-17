@@ -328,3 +328,27 @@ def test_inventory_receivables_spike():
     # Should catch at least one inventory spike and one receivables spike
     assert any("Inventory spiked +40.00%" in a for a in alerts), "Expected an inventory spike alert."
     assert any("Receivables spiked +30." in a for a in alerts), "Expected a receivables spike alert."
+
+
+def test_check_additional_alerts_quarterly_respects_config_override():
+    """alerts_config overrides suppress alerts when thresholds are raised."""
+    from edgar_analytics.multi_period_analysis import check_additional_alerts_quarterly
+
+    data_map = {
+        "free_cf": {"2022-Q1": -10.0, "2022-Q2": -5.0, "2022-Q3": 100.0},
+        "inventory": {"Q1-2023": 100, "Q2-2023": 140},
+        "receivables": {},
+    }
+    alerts_default = check_additional_alerts_quarterly(data_map)
+    assert any("negative FCF" in a for a in alerts_default)
+    assert any("Inventory" in a for a in alerts_default)
+
+    alerts_relaxed = check_additional_alerts_quarterly(
+        data_map,
+        alerts_config={
+            "SUSTAINED_NEG_FCF_QUARTERS": 10,
+            "INVENTORY_SPIKE_THRESHOLD": 99.0,
+        },
+    )
+    assert not any("negative FCF" in a for a in alerts_relaxed)
+    assert not any("Inventory" in a for a in alerts_relaxed)

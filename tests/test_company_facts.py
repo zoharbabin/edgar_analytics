@@ -101,6 +101,48 @@ class TestCikForTicker:
         assert cik is None
 
 
+class TestValidateMetricsFallbackConcept:
+    def test_revenue_falls_back_to_revenues(self, client, sample_facts):
+        """_CONCEPT_MAP tries RevenueFromContract... first, falls back to Revenues."""
+        metrics = {"Revenue": 383285000000}
+        discrepancies = client.validate_metrics(sample_facts, metrics, ticker="AAPL")
+        assert discrepancies == []
+
+    def test_equity_falls_back_to_nci_variant(self, client):
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest": {
+                        "units": {"USD": [{"end": "2023-09-30", "val": 62146000000, "form": "10-K"}]}
+                    }
+                }
+            }
+        }
+        metrics = {"Total shareholders' equity": 62146000000}
+        discrepancies = client.validate_metrics(facts, metrics, ticker="TEST")
+        assert discrepancies == []
+
+
+class TestRetryBackoff:
+    def test_retries_on_429(self, client):
+        from urllib.error import HTTPError
+        err = HTTPError("url", 429, "Too Many Requests", {}, None)
+        with patch("edgar_analytics.company_facts.urlopen", side_effect=err), \
+             patch("edgar_analytics.company_facts.time") as mock_time:
+            result = client._get_json("https://example.com/test")
+        assert result is None
+        assert mock_time.sleep.call_count == 2
+
+    def test_no_retry_on_403(self, client):
+        from urllib.error import HTTPError
+        err = HTTPError("url", 403, "Forbidden", {}, None)
+        with patch("edgar_analytics.company_facts.urlopen", side_effect=err), \
+             patch("edgar_analytics.company_facts.time") as mock_time:
+            result = client._get_json("https://example.com/test")
+        assert result is None
+        assert mock_time.sleep.call_count == 0
+
+
 class TestFetch:
     def test_fetch_returns_none_on_missing_cik(self, client):
         with patch.object(client, "cik_for_ticker", return_value=None):

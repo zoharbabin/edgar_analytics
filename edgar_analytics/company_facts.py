@@ -16,9 +16,10 @@ Usage::
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Dict, Optional
 from urllib.request import Request, urlopen
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 from .logging_utils import get_logger
 
@@ -27,12 +28,18 @@ logger = get_logger(__name__)
 _BASE_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 _SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 
-_CONCEPT_MAP: Dict[str, str] = {
-    "Revenue": "us-gaap:Revenues",
-    "Net Income": "us-gaap:NetIncomeLoss",
-    "Total assets": "us-gaap:Assets",
-    "Total liabilities": "us-gaap:Liabilities",
-    "Total shareholders' equity": "us-gaap:StockholdersEquity",
+_CONCEPT_MAP: Dict[str, list[str]] = {
+    "Revenue": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues",
+    ],
+    "Net Income": ["us-gaap:NetIncomeLoss"],
+    "Total assets": ["us-gaap:Assets"],
+    "Total liabilities": ["us-gaap:Liabilities"],
+    "Total shareholders' equity": [
+        "us-gaap:StockholdersEquity",
+        "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    ],
 }
 
 _TOLERANCE_PCT = 1.0
@@ -44,14 +51,25 @@ class CompanyFactsClient:
     def __init__(self, identity: str = "edgar-analytics <edgar-analytics@users.noreply.github.com>") -> None:
         self._headers = {"User-Agent": identity, "Accept": "application/json"}
 
-    def _get_json(self, url: str) -> Optional[dict]:
-        try:
-            req = Request(url, headers=self._headers)
-            with urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read().decode())
-        except (URLError, json.JSONDecodeError, OSError) as exc:
-            logger.debug("CompanyFacts request failed for %s: %s", url, exc)
-            return None
+    def _get_json(self, url: str, max_retries: int = 3) -> Optional[dict]:
+        backoff = 1.0
+        for attempt in range(max_retries):
+            try:
+                req = Request(url, headers=self._headers)
+                with urlopen(req, timeout=15) as resp:
+                    return json.loads(resp.read().decode())
+            except HTTPError as exc:
+                if exc.code in (429, 503) and attempt < max_retries - 1:
+                    wait = backoff * (2 ** attempt)
+                    logger.debug("SEC rate-limited (%d) on %s, retrying in %.1fs", exc.code, url, wait)
+                    time.sleep(wait)
+                    continue
+                logger.debug("CompanyFacts HTTP %d for %s: %s", exc.code, url, exc)
+                return None
+            except (URLError, json.JSONDecodeError, OSError) as exc:
+                logger.debug("CompanyFacts request failed for %s: %s", url, exc)
+                return None
+        return None
 
     def cik_for_ticker(self, ticker: str) -> Optional[str]:
         """Resolve a ticker to a zero-padded 10-digit CIK string."""
@@ -107,11 +125,15 @@ class CompanyFactsClient:
             return []
 
         discrepancies = []
-        for metric_key, concept in _CONCEPT_MAP.items():
+        for metric_key, concepts in _CONCEPT_MAP.items():
             local_val = metrics.get(metric_key)
             if local_val is None or local_val == 0:
                 continue
-            sec_val = self.get_latest_value(facts, concept)
+            sec_val = None
+            for concept in concepts:
+                sec_val = self.get_latest_value(facts, concept)
+                if sec_val is not None:
+                    break
             if sec_val is None:
                 continue
 

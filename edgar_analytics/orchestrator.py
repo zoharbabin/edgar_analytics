@@ -258,7 +258,7 @@ class TickerOrchestrator:
         multi_data["ttm"] = ttm_data
 
         quarterly_info = analyze_quarterly_balance_sheets(comp, n_quarters=n_quarters)
-        extra_alerts = check_additional_alerts_quarterly(quarterly_info)
+        extra_alerts = check_additional_alerts_quarterly(quarterly_info, alerts_config=self._alerts_config)
 
         market_cap = get_market_cap(ticker)
         share_price = get_share_price(ticker)

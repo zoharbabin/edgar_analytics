@@ -377,11 +377,15 @@ def find_multi_col_values(df: pd.DataFrame, syn_key: str, sorted_cols: list, deb
     return {k: float(v) for k, v in row[sorted_cols].dropna().items()}
 
 
-def check_additional_alerts_quarterly(data_map: dict) -> list:
+def check_additional_alerts_quarterly(data_map: dict, alerts_config: dict | None = None) -> list:
+    """Evaluate negative FCF streaks, inventory/receivables spikes, etc.
+
+    Return a list of alert strings.  Accepts optional *alerts_config*
+    overrides; falls back to ``ALERTS_CONFIG`` defaults.
     """
-    Evaluate negative FCF streaks, inventory/receivables spikes, etc.
-    Return a list of alert strings.
-    """
+    from .config import get_alerts_config
+    cfg = get_alerts_config(alerts_config)
+
     alerts = []
     fcf_dict = data_map.get("free_cf", {})
     if len(fcf_dict) > 1:
@@ -392,15 +396,15 @@ def check_additional_alerts_quarterly(data_map: dict) -> list:
                 consecutive_neg += 1
             else:
                 consecutive_neg = 0
-            if consecutive_neg >= ALERTS_CONFIG["SUSTAINED_NEG_FCF_QUARTERS"]:
+            if consecutive_neg >= cfg["SUSTAINED_NEG_FCF_QUARTERS"]:
                 alerts.append(f"{consecutive_neg} consecutive quarters of negative FCF (through {p}).")
                 break
 
     inv_dict = data_map.get("inventory", {})
-    alerts += check_spike(inv_dict, ALERTS_CONFIG["INVENTORY_SPIKE_THRESHOLD"], "Inventory")
+    alerts += check_spike(inv_dict, cfg["INVENTORY_SPIKE_THRESHOLD"], "Inventory")
 
     rec_dict = data_map.get("receivables", {})
-    alerts += check_spike(rec_dict, ALERTS_CONFIG["RECEIVABLE_SPIKE_THRESHOLD"], "Receivables")
+    alerts += check_spike(rec_dict, cfg["RECEIVABLE_SPIKE_THRESHOLD"], "Receivables")
 
     return alerts
 
