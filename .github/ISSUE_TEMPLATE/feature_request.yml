@@ -2,26 +2,34 @@ name: Feature Request
 description: Suggest a new feature or enhancement
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        We'd love to hear your ideas! Please describe what you'd like and why.
+
   - type: textarea
     id: problem
     attributes:
       label: Problem or motivation
-      description: What problem does this feature solve? Why is it needed?
+      description: What problem does this feature solve? What are you trying to accomplish that you can't today?
       placeholder: "I'm always frustrated when ..."
     validations:
       required: true
+
   - type: textarea
     id: solution
     attributes:
       label: Proposed solution
-      description: Describe the solution you'd like.
+      description: Describe the solution you'd like. Be as specific as you can — CLI flags, API changes, output format, etc.
     validations:
       required: true
+
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Any alternative solutions or workarounds you've considered.
+      description: Any alternative solutions, workarounds, or other tools you've considered.
+
   - type: dropdown
     id: area
     attributes:
@@ -34,6 +42,21 @@ body:
         - Reporting / Output
         - Filing types (20-F, 8-K, etc.)
         - Synonyms / IFRS / GAAP
+        - Multi-period analysis
+        - Installation / Packaging
+        - Documentation
         - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willing
+    attributes:
+      label: Would you be willing to contribute this?
+      description: We welcome PRs! Let us know if you'd like to implement this yourself.
+      options:
+        - "Yes, I'd like to submit a PR"
+        - "I could with some guidance"
+        - "No, just suggesting"
     validations:
       required: true

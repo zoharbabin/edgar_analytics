@@ -1,41 +1,81 @@
 name: Bug Report
-description: Report a bug or incorrect data in EDGAR Analytics
-labels: ["bug"]
+description: Report a bug, crash, or unexpected behavior
+labels: ["bug", "triage"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below so we can reproduce and fix it.
+
+        **Important**: Do not include API keys, credentials, or sensitive financial data in your report.
+
   - type: textarea
     id: description
     attributes:
-      label: Describe the bug
-      description: A clear description of what the bug is.
-      placeholder: "When I run edgar-analytics AAPL, the Net Margin % is ..."
+      label: Bug description
+      description: A clear and concise description of what the bug is.
+      placeholder: "When I run `edgar-analytics AAPL`, the program crashes with..."
     validations:
       required: true
+
   - type: textarea
     id: reproduce
     attributes:
       label: Steps to reproduce
-      description: Minimal steps or code snippet to reproduce the issue.
-      value: |
-        ```bash
-        edgar-analytics TICKER
+      description: Minimal steps, CLI command, or code snippet to reproduce the issue.
+      placeholder: |
+        1. Run `edgar-analytics AAPL --debug`
+        2. Observe the error in the output
+
+        Or for programmatic usage:
+        ```python
+        from edgar_analytics.orchestrator import TickerOrchestrator
+        orch = TickerOrchestrator()
+        orch.analyze_company("AAPL")
         ```
     validations:
       required: true
+
   - type: textarea
     id: expected
     attributes:
       label: Expected behavior
-      description: What you expected to happen.
+      description: What you expected to happen instead.
     validations:
       required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened. Include the full error traceback if applicable.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug logs
+      description: |
+        If possible, re-run with `--debug` and paste the relevant log output.
+        You can also attach the `edgar_analytics_debug.jsonl` file (remove any sensitive data first).
+      render: shell
+
   - type: input
     id: version
     attributes:
-      label: Version
+      label: edgar-analytics version
       description: "Output of `pip show edgar-analytics | grep Version`"
       placeholder: "0.3.0"
     validations:
       required: true
+
+  - type: input
+    id: edgartools_version
+    attributes:
+      label: edgartools version
+      description: "Output of `pip show edgartools | grep Version`"
+      placeholder: "5.30.0"
+
   - type: input
     id: python
     attributes:
@@ -44,8 +84,38 @@ body:
       placeholder: "3.12.0"
     validations:
       required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the project is affected?
+      options:
+        - CLI
+        - Metrics / Ratios
+        - Forecasting
+        - Multi-period analysis
+        - Reporting / Output
+        - Synonyms / IFRS / GAAP
+        - Installation / Dependencies
+        - Other
+    validations:
+      required: true
+
   - type: textarea
     id: context
     attributes:
       label: Additional context
-      description: Any other context, logs, or screenshots.
+      description: Any other context — screenshots, related issues, or workarounds you've found.

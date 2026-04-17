@@ -356,20 +356,15 @@ The test suite includes fixtures for capturing and verifying log outputs, partic
 
 ## Contributing
 
-1. **Fork** & **Clone** the repo.
-2. **Create a branch** for your feature or fix.
-3. **Write Tests** for your changes; ensure existing tests still pass.
-4. **Format your code** to comply with PEP8, PEP20, and PEP257.
-5. **Push** to your fork and create a pull request.
-6. **Discuss** & **refine** in the PR as needed.
+We welcome contributions! See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full guide, including development setup, coding standards, and financial accuracy guidelines.
 
-### Coding Standards
-
-- **PEP8**: Style guidelines.
-- **PEP20**: Zen of Python (readability counts).
-- **PEP257**: Docstring guidelines.
-- **Security**: Validate all inputs, use robust error handling, do not trust external data blindly.
-- **Tests**: Provide tests for new features or modifications to existing features.
+Quick links:
+- [Report a bug](https://github.com/zoharbabin/edgar_analytics/issues/new?template=bug_report.yml)
+- [Report a data accuracy issue](https://github.com/zoharbabin/edgar_analytics/issues/new?template=data_accuracy.yml)
+- [Request a feature](https://github.com/zoharbabin/edgar_analytics/issues/new?template=feature_request.yml)
+- [Ask a question](https://github.com/zoharbabin/edgar_analytics/discussions)
+- [Security policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ---
 

@@ -1,0 +1,92 @@
+name: Data Accuracy Issue
+description: Report incorrect financial metrics, ratios, or calculations
+labels: ["data accuracy", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Financial accuracy is critical. Use this template when EDGAR Analytics produces numbers that don't match the actual SEC filing.
+
+        **Important**: Do not include API keys, credentials, or proprietary data in your report.
+
+  - type: input
+    id: ticker
+    attributes:
+      label: Ticker symbol
+      description: The company ticker where you observed the inaccuracy.
+      placeholder: "AAPL"
+    validations:
+      required: true
+
+  - type: input
+    id: filing
+    attributes:
+      label: Filing type and period
+      description: "Which filing and period? e.g., 10-K 2024, 10-Q Q3 2024"
+      placeholder: "10-K 2024"
+    validations:
+      required: true
+
+  - type: input
+    id: metric
+    attributes:
+      label: Affected metric
+      description: "Which metric or ratio is wrong? e.g., Net Margin %, Free Cash Flow, EBITDA"
+      placeholder: "Net Margin %"
+    validations:
+      required: true
+
+  - type: input
+    id: reported_value
+    attributes:
+      label: Value reported by edgar-analytics
+      description: The number the library computed.
+      placeholder: "-12.5%"
+    validations:
+      required: true
+
+  - type: input
+    id: expected_value
+    attributes:
+      label: Expected value (from filing or reference)
+      description: The correct number from the SEC filing, 10-K/10-Q document, or a trusted reference.
+      placeholder: "8.3%"
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Reference source
+      description: |
+        How did you determine the expected value? Link to the SEC filing, page number, or XBRL viewer.
+        Example: https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=AAPL
+      placeholder: "SEC filing page 45, Income Statement — Net Income / Revenue = 8.3%"
+    validations:
+      required: true
+
+  - type: textarea
+    id: analysis
+    attributes:
+      label: Possible cause
+      description: |
+        If you have any idea what might be causing the discrepancy (missing synonym, sign flip,
+        wrong line item, double-counting, etc.), describe it here.
+
+  - type: input
+    id: version
+    attributes:
+      label: edgar-analytics version
+      description: "Output of `pip show edgar-analytics | grep Version`"
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug_output
+    attributes:
+      label: Debug output
+      description: |
+        Re-run with `--debug` and paste the relevant synonym resolution and metric computation lines.
+        This helps us trace which line items were matched.
+      render: shell
