@@ -12,7 +12,7 @@ Verifies that:
 import logging
 import logging.handlers
 import os
-from edgar_analytics.logging_utils import configure_logging
+from edgar_analytics.logging_utils import configure_logging, _get_log_directory
 
 
 def test_no_duplicate_handlers():
@@ -88,8 +88,8 @@ def test_reconfigure_updates_existing_handlers():
 
 
 def test_json_log_file_creation():
-    """Test that the JSON log file is created with rotating handler."""
-    expected_path = os.path.join(os.getcwd(), "edgar_analytics_debug.jsonl")
+    """Test that the JSON log file is created in the platform log directory."""
+    expected_path = os.path.join(_get_log_directory(), "edgar_analytics_debug.jsonl")
 
     configure_logging("DEBUG")
 

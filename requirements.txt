@@ -1,12 +1,14 @@
-# Main Dependencies
-pandas
-numpy
-statsmodels
-edgartools
-click
-rich
+# Main Dependencies (pinned ranges match setup.py)
+pandas>=1.5,<4
+numpy>=1.23,<3
+edgartools>=5.0,<6
+click>=8.0,<9
+rich>=12.0,<15
 
-# tests
+# Optional: forecasting
+statsmodels>=0.13,<1
+
+# Testing
 pytest
 pytz
 pytest-xdist

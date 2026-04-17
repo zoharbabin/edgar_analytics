@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+import numpy as np
 import pandas as pd
 from rich.console import Console
 
@@ -208,10 +209,13 @@ class ReportingEngine:
                 yoy_msg = "  Not enough data for yoy growth."
 
             # cagr
-            cagr_msg = f"  CAGR= {cagr_rev:.2f}%. "
-            if cagr_rev < 0.0:
-                cagr_msg += "[red]Overall revenue has contracted[/red]."
-                self.logger.info("Overall revenue has contracted")
+            if pd.notna(cagr_rev):
+                cagr_msg = f"  CAGR= {cagr_rev:.2f}%. "
+                if cagr_rev < 0.0:
+                    cagr_msg += "[red]Overall revenue has contracted[/red]."
+                    self.logger.info("Overall revenue has contracted")
+            else:
+                cagr_msg = "  CAGR= N/A (requires positive start/end values). "
 
             fc_text = f"  Forecast(annual)= {annual_fc:,.2f}, Forecast(quarterly)= {qtr_fc:,.2f}"
 
@@ -223,10 +227,11 @@ class ReportingEngine:
             for metric in ("Net Income", "Gross Profit", "Operating Income"):
                 metric_yoy = yoy_all.get(metric, {})
                 metric_cagr = cagr_all.get(metric, 0.0)
-                if metric_yoy or metric_cagr:
+                if metric_yoy or (pd.notna(metric_cagr) and metric_cagr != 0.0):
                     avg = sum(metric_yoy.values()) / len(metric_yoy) if metric_yoy else 0.0
+                    cagr_str = f"{metric_cagr:.1f}%" if pd.notna(metric_cagr) else "N/A"
                     self.console.print(
-                        f"  {metric}: avg yoy={avg:.1f}%, CAGR={metric_cagr:.1f}%"
+                        f"  {metric}: avg yoy={avg:.1f}%, CAGR={cagr_str}"
                     )
 
         self.console.print("[bold magenta]==== End of Summary ====[/bold magenta]\n")

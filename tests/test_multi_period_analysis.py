@@ -79,9 +79,11 @@ def test_compute_cagr():
 
 
 def test_compute_cagr_negative_last_val():
-    """Negative last value returns 0.0 instead of crashing."""
+    """Negative last value returns NaN (CAGR is undefined for non-positive values)."""
+    import numpy as np
+    import pandas as pd
     data = {"2020": 100, "2023": -50}
-    assert compute_cagr(data) == 0.0
+    assert pd.isna(compute_cagr(data))
 
 
 def test_compute_cagr_same_year():

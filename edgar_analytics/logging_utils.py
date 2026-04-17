@@ -12,12 +12,26 @@ import logging
 import logging.handlers
 import os
 import json
+import sys
 from typing import Any, Dict
 from rich.logging import RichHandler
 
 _THIRD_PARTY_LOGGERS = ("edgar", "edgartools", "httpx")
 _LOG_FILE_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 _LOG_FILE_BACKUP_COUNT = 3
+
+
+def _get_log_directory() -> str:
+    """Return a platform-appropriate directory for log files."""
+    if sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Logs")
+    elif sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+    else:
+        base = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
+    log_dir = os.path.join(base, "edgar_analytics")
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
 
 
 class JSONFormatter(logging.Formatter):
@@ -60,7 +74,7 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
     edgar_logger.setLevel(chosen_level)
 
     if not edgar_logger.handlers:
-        debug_file_path = os.path.join(os.getcwd(), "edgar_analytics_debug.jsonl")
+        debug_file_path = os.path.join(_get_log_directory(), "edgar_analytics_debug.jsonl")
         json_file_handler = logging.handlers.RotatingFileHandler(
             debug_file_path, mode='a', encoding='utf-8',
             maxBytes=_LOG_FILE_MAX_BYTES, backupCount=_LOG_FILE_BACKUP_COUNT,
