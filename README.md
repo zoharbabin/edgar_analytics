@@ -1,6 +1,17 @@
 # EDGAR Analytics
 
-**A Python library for analyzing SEC EDGAR filings, computing financial metrics, generating forecasts (with a strategy-based architecture), and producing clear summary reports.**
+[![PyPI version](https://img.shields.io/pypi/v/edgar-analytics)](https://pypi.org/project/edgar-analytics/)
+[![CI](https://github.com/zoharbabin/edgar_analytics/actions/workflows/workflow.yml/badge.svg)](https://github.com/zoharbabin/edgar_analytics/actions/workflows/workflow.yml)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/edgar-analytics)](https://pypi.org/project/edgar-analytics/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/zoharbabin/edgar_analytics?style=social)](https://github.com/zoharbabin/edgar_analytics/stargazers)
+
+**Analyze SEC EDGAR filings in seconds.** Retrieve 10-K and 10-Q financial statements, compute 25+ GAAP/IFRS metrics, forecast revenue with ARIMA/SARIMAX, and get actionable alerts — all from a single CLI command or Python import.
+
+```bash
+pip install edgar-analytics
+edgar-analytics AAPL MSFT GOOGL --csv report.csv
+```
 
 ---
 
@@ -20,7 +31,8 @@
 9. [Extensibility](#extensibility)
 10. [Testing](#testing)
 11. [Contributing](#contributing)
-12. [License](#license)
+12. [Star History](#star-history)
+13. [License](#license)
 
 ---
 
@@ -361,6 +373,18 @@ The test suite includes fixtures for capturing and verifying log outputs, partic
 
 ---
 
+## Star History
+
+<a href="https://star-history.com/#zoharbabin/edgar_analytics&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zoharbabin/edgar_analytics&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zoharbabin/edgar_analytics&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zoharbabin/edgar_analytics&type=Date" width="100%" />
+ </picture>
+</a>
+
+---
+
 ## License
 
 **MIT License**  
@@ -371,4 +395,4 @@ This tool extracts data from public SEC filings. Always review official filings 
 
 ---
 
-**Happy Analyzing!**
+**Happy Analyzing!** If you find this useful, please [give us a star](https://github.com/zoharbabin/edgar_analytics) — it helps others discover the project.
