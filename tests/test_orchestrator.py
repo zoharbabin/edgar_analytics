@@ -102,16 +102,13 @@ def test_analyze_company_invalid_peer(caplog):
 
 
 def test_analyze_company_exception_in_creation(caplog):
-    """
-    If creating the Company object raises an Exception, it should log an error
-    and skip further processing.
-    """
-    with patch("edgar_analytics.orchestrator.Company", side_effect=Exception("Creation error")), \
+    """If creating the Company object raises, TickerFetchError should propagate."""
+    from edgar_analytics.orchestrator import TickerFetchError
+    with patch("edgar_analytics.orchestrator.Company", side_effect=ValueError("Creation error")), \
          patch("edgar_analytics.orchestrator.set_identity"):
         orchestrator = TickerOrchestrator()
-        orchestrator.analyze_company("AAPL", peers=[])
-
-    assert "Failed to create Company object for AAPL: Creation error" in caplog.text
+        with pytest.raises(TickerFetchError, match="Cannot resolve ticker"):
+            orchestrator.analyze_company("AAPL", peers=[])
 
 
 # ---------------------------------------------------------------------
@@ -416,7 +413,7 @@ def test_cross_validate_called(caplog):
     with patch.object(orchestrator._facts_client, "fetch", return_value=None):
         orchestrator._cross_validate("AAPL", snap)
 
-    with patch.object(orchestrator._facts_client, "fetch", side_effect=Exception("network error")):
+    with patch.object(orchestrator._facts_client, "fetch", side_effect=OSError("network error")):
         orchestrator._cross_validate("AAPL", snap)
 
 

@@ -79,7 +79,7 @@ def main(ticker, peers, csv, years, quarters, log_level, debug, disable_forecast
         edgar-analytics --help
     """
     effective_level = "DEBUG" if debug else log_level
-    configure_logging(effective_level, suppress_logs=suppress_logs)
+    configure_logging(effective_level, suppress_logs=suppress_logs, enable_file_logging=True)
 
     orchestrator = TickerOrchestrator()
     try:

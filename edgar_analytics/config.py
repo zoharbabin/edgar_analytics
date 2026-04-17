@@ -1,6 +1,8 @@
 # edgar_analytics/config.py
 
-ALERTS_CONFIG = {
+from typing import Dict, Any
+
+ALERTS_CONFIG: Dict[str, Any] = {
     "NEGATIVE_MARGIN": 0.0,
     "HIGH_LEVERAGE": 3.0,
     "LOW_ROE": 5.0,
@@ -11,3 +13,11 @@ ALERTS_CONFIG = {
     "INVENTORY_SPIKE_THRESHOLD": 30.0,
     "RECEIVABLE_SPIKE_THRESHOLD": 30.0,
 }
+
+
+def get_alerts_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Return alerts config merged with optional user overrides."""
+    if not overrides:
+        return ALERTS_CONFIG
+    merged = {**ALERTS_CONFIG, **overrides}
+    return merged

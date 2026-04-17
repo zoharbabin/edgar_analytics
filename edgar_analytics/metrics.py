@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from edgar import Company
 
-from .config import ALERTS_CONFIG
+from .config import ALERTS_CONFIG, get_alerts_config
 from .scores import compute_all_scores, run_dqc_checks
 from .synonyms import SYNONYMS
 from .synonyms_utils import (
@@ -38,7 +38,8 @@ def _get_financial_statement(financials, statement_type: str):
 def compute_ratios_and_metrics(
     balance_df: pd.DataFrame,
     income_df: pd.DataFrame,
-    cash_df: pd.DataFrame
+    cash_df: pd.DataFrame,
+    alerts_config: dict | None = None,
 ) -> dict:
     """
     Compute key financial ratios from the provided DataFrames (Balance, Income, Cash Flow).
@@ -53,6 +54,7 @@ def compute_ratios_and_metrics(
     :param cash_df:   Cash flow statement data as a DataFrame
     :return: A dictionary of computed metrics and alerts.
     """
+    cfg = get_alerts_config(alerts_config)
     metrics = {}
 
     # ========== INCOME STATEMENT ==========
@@ -231,27 +233,27 @@ def compute_ratios_and_metrics(
     if identity_check and identity_check != "ok":
         alerts.append(identity_check)
     net_margin = metrics["Net Margin %"]
-    if pd.notna(net_margin) and net_margin < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
-        alerts.append(f"Net margin below {ALERTS_CONFIG['NEGATIVE_MARGIN']}% (negative)")
+    if pd.notna(net_margin) and net_margin < cfg["NEGATIVE_MARGIN"]:
+        alerts.append(f"Net margin below {cfg['NEGATIVE_MARGIN']}% (negative)")
 
     de_ratio = metrics["Debt-to-Equity"]
-    if pd.notna(de_ratio) and de_ratio > ALERTS_CONFIG["HIGH_LEVERAGE"]:
-        alerts.append(f"Debt-to-Equity above {ALERTS_CONFIG['HIGH_LEVERAGE']} (high leverage)")
+    if pd.notna(de_ratio) and de_ratio > cfg["HIGH_LEVERAGE"]:
+        alerts.append(f"Debt-to-Equity above {cfg['HIGH_LEVERAGE']} (high leverage)")
     if total_equity < 0:
         alerts.append("Negative shareholders' equity (potential insolvency)")
 
     roe = metrics["ROE %"]
-    if pd.notna(roe) and total_equity > 0 and roe < ALERTS_CONFIG["LOW_ROE"]:
-        alerts.append(f"ROE < {ALERTS_CONFIG['LOW_ROE']}%")
+    if pd.notna(roe) and total_equity > 0 and roe < cfg["LOW_ROE"]:
+        alerts.append(f"ROE < {cfg['LOW_ROE']}%")
     roa = metrics["ROA %"]
-    if pd.notna(roa) and roa < ALERTS_CONFIG["LOW_ROA"]:
-        alerts.append(f"ROA < {ALERTS_CONFIG['LOW_ROA']}%")
+    if pd.notna(roa) and roa < cfg["LOW_ROA"]:
+        alerts.append(f"ROA < {cfg['LOW_ROA']}%")
 
     if tangible_equity < 0:
         alerts.append("Negative tangible equity (intangibles exceed equity)")
 
     net_debt_ebitda = metrics["Net Debt/EBITDA"]
-    net_debt_threshold = ALERTS_CONFIG["NET_DEBT_EBITDA_THRESHOLD"]
+    net_debt_threshold = cfg["NET_DEBT_EBITDA_THRESHOLD"]
     if metrics["Net Debt"] > 0:
         if pd.isna(net_debt_ebitda):
             alerts.append("Net Debt positive but EBITDA non-positive => leverage ratio undefined.")
@@ -259,7 +261,7 @@ def compute_ratios_and_metrics(
             alerts.append(f"Net Debt/EBITDA above {net_debt_threshold} (heavy leverage).")
 
     interest_cov = metrics["Interest Coverage"]
-    interest_cov_threshold = ALERTS_CONFIG["INTEREST_COVERAGE_THRESHOLD"]
+    interest_cov_threshold = cfg["INTEREST_COVERAGE_THRESHOLD"]
     if pd.notna(interest_cov) and interest_cov < interest_cov_threshold:
         alerts.append(f"Interest coverage below {interest_cov_threshold} => potential default risk.")
 

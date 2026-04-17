@@ -31,7 +31,6 @@ SYNONYMS = {
         "Operating revenue",
         "Total revenue",
         "RevenueFromContractWithCustomer",
-        "BusinessAcquisitionsProFormaRevenue",
     ],
 
     # ======================
@@ -114,14 +113,17 @@ SYNONYMS = {
     #  GENERAL & ADMIN
     # ======================
     "general_administrative": [
+        "us-gaap:SellingGeneralAndAdministrativeExpense",
+        "us-gaap_SellingGeneralAndAdministrativeExpense",
         "us-gaap:GeneralAndAdministrativeExpense",
         "us-gaap_GeneralAndAdministrativeExpense",
         # IFRS
         "ifrs-full:AdministrativeExpense",
         # Common textual labels
+        "Selling, general and administrative",
+        "Selling, general and administrative expenses",
         "General and administrative",
         "SGA",
-        "Selling, general and administrative",
     ],
 
     # ======================
@@ -186,12 +188,17 @@ SYNONYMS = {
     "depreciation_amortization": [
         "us-gaap:DepreciationDepletionAndAmortization",
         "us-gaap_DepreciationDepletionAndAmortization",
+        # IFRS
+        "ifrs-full:DepreciationAndAmortisationExpense",
         # Common textual labels
         "Depreciation and amortization",
         "Depreciation & Amortization",
+        "Depreciation and amortisation",
         "Depreciation expense",
         "Amortization expense",
+        "Amortisation expense",
         "Depreciation and amortization expense",
+        "Depreciation and amortisation expense",
         "D&A",
     ],
 
@@ -220,7 +227,6 @@ SYNONYMS = {
         "Net Income",
         "Net Earnings",
         "Income (loss) from continuing operations",
-        "BusinessAcquisitionsProFormaNetIncomeLoss",
     ],
 
     # ======================

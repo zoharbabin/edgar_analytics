@@ -52,13 +52,19 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_record, ensure_ascii=False)
 
 
-def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
-    """
-    Configure logging for edgar_analytics.
+def configure_logging(
+    log_level: str,
+    suppress_logs: bool = False,
+    enable_file_logging: bool = False,
+) -> None:
+    """Configure logging for edgar_analytics.
 
     Args:
         log_level: e.g., 'DEBUG', 'INFO', etc.
         suppress_logs: If True, minimize console logs and show only final output.
+        enable_file_logging: If True, write debug JSON logs to disk.
+            Defaults to False so library consumers don't get surprise log files.
+            The CLI sets this to True automatically.
     """
     valid_levels = {
         "DEBUG": logging.DEBUG,
@@ -74,13 +80,15 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
     edgar_logger.setLevel(chosen_level)
 
     if not edgar_logger.handlers:
-        debug_file_path = os.path.join(_get_log_directory(), "edgar_analytics_debug.jsonl")
-        json_file_handler = logging.handlers.RotatingFileHandler(
-            debug_file_path, mode='a', encoding='utf-8',
-            maxBytes=_LOG_FILE_MAX_BYTES, backupCount=_LOG_FILE_BACKUP_COUNT,
-        )
-        json_file_handler.setLevel(logging.DEBUG)
-        json_file_handler.setFormatter(JSONFormatter())
+        if enable_file_logging:
+            debug_file_path = os.path.join(_get_log_directory(), "edgar_analytics_debug.jsonl")
+            json_file_handler = logging.handlers.RotatingFileHandler(
+                debug_file_path, mode='a', encoding='utf-8',
+                maxBytes=_LOG_FILE_MAX_BYTES, backupCount=_LOG_FILE_BACKUP_COUNT,
+            )
+            json_file_handler.setLevel(logging.DEBUG)
+            json_file_handler.setFormatter(JSONFormatter())
+            edgar_logger.addHandler(json_file_handler)
 
         console_handler = RichHandler(
             level=console_log_level,
@@ -90,7 +98,6 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
             show_path=False
         )
 
-        edgar_logger.addHandler(json_file_handler)
         edgar_logger.addHandler(console_handler)
 
         atexit.register(_shutdown_logging)

@@ -40,7 +40,7 @@ class TestPerShareMetrics:
         balance_df = pd.DataFrame({"Value": [50]}, index=["Shares outstanding"])
         ps = PerShareMetrics.compute(income_df, balance_df, 100, 1000, 80)
         assert ps.eps_basic == pytest.approx(2.0)
-        assert ps.eps_diluted == pytest.approx(2.0)
+        assert math.isnan(ps.eps_diluted), "Diluted EPS should be NaN when not reported (no diluted share count)"
 
     def test_zero_shares(self):
         income_df = pd.DataFrame({"Value": [100]}, index=["Net income"])
@@ -138,14 +138,15 @@ class TestDuPontDecomposition:
         assert math.isnan(dp.roe_3)
 
     def test_negative_equity(self):
-        """Negative equity is valid (buyback-heavy companies) — DuPont should still compute."""
+        """Negative equity produces NaN ROE (sign inversions lose meaning) with a warning flag."""
         dp = DuPontDecomposition.compute(
             net_income=-50, revenue=1000, total_assets=5000,
             total_equity=-2000, ebit=200, income_before_taxes=150,
         )
         assert dp.equity_multiplier == pytest.approx(5000 / -2000)
-        assert not math.isnan(dp.roe_3)
-        assert not math.isnan(dp.roe_5)
+        assert math.isnan(dp.roe_3), "DuPont ROE should be NaN when equity is negative"
+        assert math.isnan(dp.roe_5), "DuPont ROE-5 should be NaN when equity is negative"
+        assert dp.negative_equity_warning is True
 
 
 class TestPiotroskiScore:

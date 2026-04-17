@@ -58,8 +58,8 @@ class PerShareMetrics:
 
         if pd.isna(eps_b) and shares > 0:
             eps_b = net_income / shares
-        if pd.isna(eps_d) and shares > 0:
-            eps_d = net_income / shares
+        if pd.isna(eps_d):
+            eps_d = _NAN
 
         return cls(eps_basic=eps_b, eps_diluted=eps_d, book_value_per_share=bv_ps, fcf_per_share=fcf_ps)
 
@@ -103,22 +103,41 @@ class WorkingCapitalCycle:
 # TTM computation (#8)
 # ---------------------------------------------------------------------------
 
+_STOCK_METRICS = frozenset({
+    "Total Assets", "Total Equity", "Total Liabilities",
+    "Current Assets", "Current Liabilities",
+    "Short-term Debt", "Long-term Debt",
+    "Debt-to-Equity", "ROE %", "ROA %",
+})
+
+
 def compute_ttm(quarterly_data: Dict[str, Dict[str, float]]) -> Dict[str, float]:
-    """Sum the last 4 quarterly values for each metric to get trailing twelve months.
+    """Compute trailing twelve months values from quarterly data.
+
+    Flow metrics (Revenue, Net Income, etc.) are summed across the last 4
+    quarters.  Stock metrics (Total Assets, Total Equity, etc.) use the
+    most recent quarter's value, since summing point-in-time balances is
+    nonsensical.
 
     Args:
         quarterly_data: {metric_name: {period_label: value, ...}, ...}
 
     Returns:
-        {metric_name: ttm_value} for metrics with >= 4 quarters of data.
+        {metric_name: ttm_value} for metrics with >= 4 quarters of data
+        (flow) or >= 1 quarter (stock).
     """
     ttm = {}
     for metric, periods in quarterly_data.items():
-        if len(periods) < 4:
-            continue
         sorted_periods = sorted(periods.keys(), key=parse_period_label, reverse=True)
-        last_4 = sorted_periods[:4]
-        ttm[metric] = sum(periods[p] for p in last_4)
+
+        if metric in _STOCK_METRICS:
+            if sorted_periods:
+                ttm[metric] = periods[sorted_periods[0]]
+        else:
+            if len(periods) < 4:
+                continue
+            last_4 = sorted_periods[:4]
+            ttm[metric] = sum(periods[p] for p in last_4)
     return ttm
 
 
@@ -186,6 +205,8 @@ class DuPontDecomposition:
     operating_margin: float = _NAN
     roe_5: float = _NAN
 
+    negative_equity_warning: bool = False
+
     @classmethod
     def compute(
         cls,
@@ -196,11 +217,15 @@ class DuPontDecomposition:
         ebit: float,
         income_before_taxes: float,
     ) -> DuPontDecomposition:
+        neg_eq = total_equity < 0
+
         npm = (net_income / revenue) if revenue else _NAN
         at = (revenue / total_assets) if total_assets else _NAN
         em = (total_assets / total_equity) if total_equity != 0 else _NAN
 
-        if pd.notna(npm) and pd.notna(at) and pd.notna(em):
+        if neg_eq:
+            roe_3 = _NAN
+        elif pd.notna(npm) and pd.notna(at) and pd.notna(em):
             roe_3 = npm * at * em * 100.0
         else:
             roe_3 = _NAN
@@ -209,7 +234,9 @@ class DuPontDecomposition:
         interest_burden = (income_before_taxes / ebit) if ebit else _NAN
         op_margin = (ebit / revenue) if revenue else _NAN
 
-        if all(pd.notna(x) for x in [tax_burden, interest_burden, op_margin, at, em]):
+        if neg_eq:
+            roe_5 = _NAN
+        elif all(pd.notna(x) for x in [tax_burden, interest_burden, op_margin, at, em]):
             roe_5 = tax_burden * interest_burden * op_margin * at * em * 100.0
         else:
             roe_5 = _NAN
@@ -223,6 +250,7 @@ class DuPontDecomposition:
             interest_burden=interest_burden,
             operating_margin=op_margin,
             roe_5=roe_5,
+            negative_equity_warning=neg_eq,
         )
 
 
@@ -292,6 +320,7 @@ class PiotroskiScore:
 class AltmanZScore:
     z_score: float = _NAN
     zone: str = ""
+    model: str = ""
     components: Dict[str, float] = field(default_factory=dict)
 
     @classmethod
@@ -304,6 +333,8 @@ class AltmanZScore:
         total_liabilities: float,
         revenue: float,
         total_assets: float,
+        book_value_equity: float = _NAN,
+        is_manufacturing: Optional[bool] = None,
     ) -> AltmanZScore:
         if total_assets <= 0:
             return cls()
@@ -311,28 +342,56 @@ class AltmanZScore:
         a = working_capital / total_assets
         b = retained_earnings / total_assets
         c = ebit / total_assets
-        d = (market_cap / total_liabilities) if total_liabilities > 0 else _NAN
-        e = revenue / total_assets
 
-        if pd.isna(d):
-            return cls(
-                components={"A": a, "B": b, "C": c, "D": _NAN, "E": e},
-            )
+        if is_manufacturing is None:
+            is_manufacturing = revenue / total_assets > 0.5 if total_assets > 0 else True
 
-        z = 1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d + 1.0 * e
+        if is_manufacturing and not pd.isna(market_cap) and total_liabilities > 0:
+            d = market_cap / total_liabilities
+            e = revenue / total_assets
+            z = 1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d + 1.0 * e
+            model = "Z (manufacturing)"
+            if z > 2.99:
+                zone = "Safe"
+            elif z > 1.81:
+                zone = "Grey"
+            else:
+                zone = "Distress"
+            return cls(z_score=z, zone=zone, model=model,
+                       components={"A": a, "B": b, "C": c, "D": d, "E": e})
 
-        if z > 2.99:
-            zone = "Safe"
-        elif z > 1.81:
-            zone = "Grey"
+        bve = book_value_equity if pd.notna(book_value_equity) else _NAN
+        if pd.isna(bve) or total_liabilities <= 0:
+            d_prime = (market_cap / total_liabilities) if (
+                not pd.isna(market_cap) and total_liabilities > 0
+            ) else _NAN
+            if pd.isna(d_prime):
+                return cls(components={"A": a, "B": b, "C": c, "D": _NAN})
+
+            z = 1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d_prime
+            model = "Z' (partial)"
         else:
-            zone = "Distress"
+            d_prime = bve / total_liabilities
+            z = 6.56 * a + 3.26 * b + 6.72 * c + 1.05 * d_prime
+            model = "Z'' (non-manufacturing)"
 
-        return cls(
-            z_score=z,
-            zone=zone,
-            components={"A": a, "B": b, "C": c, "D": d, "E": e},
-        )
+        if "non-manufacturing" in model:
+            if z > 2.60:
+                zone = "Safe"
+            elif z > 1.10:
+                zone = "Grey"
+            else:
+                zone = "Distress"
+        else:
+            if z > 2.99:
+                zone = "Safe"
+            elif z > 1.81:
+                zone = "Grey"
+            else:
+                zone = "Distress"
+
+        return cls(z_score=z, zone=zone, model=model,
+                   components={"A": a, "B": b, "C": c, "D'": d_prime})
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +434,12 @@ class BeneishMScore:
         # GMI — Gross Margin Index
         gm = gross_margin_pct / 100.0
         gm_prev = gross_margin_pct_prev / 100.0
-        gmi = (gm_prev / gm) if gm else 1.0
+        if gm > 0:
+            gmi = gm_prev / gm
+        elif gm_prev > 0:
+            gmi = gm_prev / 0.001
+        else:
+            gmi = 1.0
 
         # AQI — Asset Quality Index: proportion of non-hard assets
         # Per Beneish (1999): hard assets = (Current Assets + PP&E + Securities) / TA
@@ -507,6 +571,7 @@ def compute_all_scores(
         total_liabilities=total_liabs,
         revenue=revenue,
         total_assets=total_assets,
+        book_value_equity=total_equity,
     )
 
     # --- Scores that require prior-period data ---

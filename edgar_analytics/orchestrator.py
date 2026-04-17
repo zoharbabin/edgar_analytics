@@ -17,6 +17,14 @@ from edgar import Company, set_identity
 
 from .logging_utils import get_logger
 from .models import AnalysisResult, TickerAnalysis
+
+
+class EdgarAnalyticsError(Exception):
+    """Base exception for edgar_analytics operational errors."""
+
+
+class TickerFetchError(EdgarAnalyticsError):
+    """Raised when a ticker cannot be resolved or its filings cannot be fetched."""
 from .reporting import ReportingEngine
 from .metrics import (
     get_single_filing_snapshot,
@@ -88,6 +96,7 @@ class TickerOrchestrator:
         n_quarters: int = 10,
         disable_forecast: bool = False,
         identity: Optional[str] = None,
+        alerts_config: Optional[Dict[str, Any]] = None,
     ) -> AnalysisResult:
         """Run a full EDGAR analysis and return structured results.
 
@@ -101,13 +110,17 @@ class TickerOrchestrator:
         :param n_quarters: Number of quarterly filings to retrieve.
         :param disable_forecast: Skip ARIMA revenue forecasting.
         :param identity: SEC EDGAR identity string (``"Name <email>"``).
+        :param alerts_config: Optional dict of alert threshold overrides
+            (e.g. ``{"HIGH_LEVERAGE": 5.0}``).  Keys not provided keep defaults.
         :returns: An :class:`AnalysisResult` with typed fields for every ticker.
-        :raises ValueError: If the main ticker is invalid.
+        :raises ValueError: If the main ticker symbol is syntactically invalid.
+        :raises TickerFetchError: If the main ticker cannot be resolved or fetched.
         """
         if not TickerDetector.validate_ticker_symbol(ticker):
             raise ValueError(f"Invalid ticker symbol: {ticker!r}")
 
         self._set_identity(identity)
+        self._alerts_config = alerts_config
         self.logger.info("Analyzing company: %s", ticker)
 
         result = AnalysisResult(main_ticker=ticker)
@@ -212,9 +225,8 @@ class TickerOrchestrator:
 
         try:
             comp = Company(ticker)
-        except Exception as exc:
-            self.logger.exception("Failed to create Company object for %s: %s", ticker, exc)
-            return {}
+        except (ValueError, KeyError, OSError) as exc:
+            raise TickerFetchError(f"Cannot resolve ticker {ticker!r}: {exc}") from exc
 
         annual_snap = self._cached_snapshot(comp, ticker, ANNUAL_FORM_TYPES, is_current=False)
         quarterly_snap = self._cached_snapshot(comp, ticker, QUARTERLY_FORM_TYPES, is_current=True)
@@ -285,7 +297,7 @@ class TickerOrchestrator:
         try:
             facts = self._facts_client.fetch(ticker)
             self._facts_client.validate_metrics(facts, metrics, ticker=ticker)
-        except Exception as exc:
+        except (OSError, ValueError, KeyError) as exc:
             self.logger.debug("CompanyFacts validation skipped for %s: %s", ticker, exc)
 
     def _enhance_scores_with_prior_year(

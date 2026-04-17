@@ -21,13 +21,23 @@ def test_no_duplicate_handlers():
 
     configure_logging("DEBUG")
     initial_handler_count = len(logger.handlers)
-    assert initial_handler_count == 2, "Should have exactly 2 handlers (JSON and console)"
+    assert initial_handler_count == 1, "Library mode: only console handler (no file logging by default)"
 
     configure_logging("INFO")
     assert len(logger.handlers) == initial_handler_count, "Handler count should not change on reconfiguration"
 
     configure_logging("WARNING", suppress_logs=True)
     assert len(logger.handlers) == initial_handler_count, "Handler count should not change with suppress_logs"
+
+
+def test_file_logging_opt_in():
+    """Test that enable_file_logging=True adds a file handler."""
+    logger = logging.getLogger("edgar_analytics")
+
+    configure_logging("DEBUG", enable_file_logging=True)
+    handler_types = [type(h).__name__ for h in logger.handlers]
+    assert "RotatingFileHandler" in handler_types, "File handler should be present when opted in"
+    assert "RichHandler" in handler_types, "Console handler should always be present"
 
 
 def test_third_party_logger_levels():
@@ -88,10 +98,10 @@ def test_reconfigure_updates_existing_handlers():
 
 
 def test_json_log_file_creation():
-    """Test that the JSON log file is created in the platform log directory."""
+    """Test that the JSON log file is created when file logging is enabled."""
     expected_path = os.path.join(_get_log_directory(), "edgar_analytics_debug.jsonl")
 
-    configure_logging("DEBUG")
+    configure_logging("DEBUG", enable_file_logging=True)
 
     logger = logging.getLogger("edgar_analytics")
     file_handler = next(h for h in logger.handlers if isinstance(h, logging.FileHandler))
