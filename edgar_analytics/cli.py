@@ -1,7 +1,6 @@
 # edgar_analytics/cli.py
 
 import click
-from rich.progress import Progress
 from .orchestrator import TickerOrchestrator
 from .logging_utils import configure_logging
 
@@ -71,7 +70,7 @@ from .logging_utils import configure_logging
 def main(ticker, peers, csv, years, quarters, log_level, debug, disable_forecast, identity, suppress_logs):
     """
     Analyze a TICKER plus optional PEERS. Example usage:
-    
+
         edgar-analytics AAPL
         edgar-analytics AAPL MSFT --csv output.csv
         edgar-analytics AAPL MSFT GOOGL --years 5 --quarters 8
@@ -83,24 +82,15 @@ def main(ticker, peers, csv, years, quarters, log_level, debug, disable_forecast
     configure_logging(effective_level, suppress_logs=suppress_logs)
 
     orchestrator = TickerOrchestrator()
-    with Progress() as progress:
-        task_id = progress.add_task(
-            f"[cyan]Retrieving data for {ticker} + peers...",
-            total=1
-        )
-
-        orchestrator.analyze_company(
-            ticker=ticker,
-            peers=list(peers),
-            csv_path=csv,
-            n_years=years,
-            n_quarters=quarters,
-            disable_forecast=disable_forecast,
-            identity=identity
-        )
-
-        progress.update(task_id, advance=1)
-        progress.stop()
+    orchestrator.analyze_company(
+        ticker=ticker,
+        peers=list(peers),
+        csv_path=csv,
+        n_years=years,
+        n_quarters=quarters,
+        disable_forecast=disable_forecast,
+        identity=identity
+    )
 
 if __name__ == "__main__":
     main()

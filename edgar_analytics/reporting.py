@@ -116,11 +116,9 @@ class ReportingEngine:
             new_order = [main_ticker] + [t for t in all_tickers if t != main_ticker]
             df_summary = df_summary.loc[new_order]
 
-        # Force numeric if possible
         for col in df_summary.columns:
-            df_summary[col] = pd.to_numeric(df_summary[col], errors="ignore")
+            df_summary[col] = pd.to_numeric(df_summary[col], errors="coerce")
 
-        # Format numeric columns
         numeric_cols = df_summary.select_dtypes(include=["number"]).columns
         for col in numeric_cols:
             df_summary[col] = df_summary[col].apply(custom_float_format)
@@ -128,31 +126,35 @@ class ReportingEngine:
         return df_summary
 
     def _show_alerts(self, snapshot_dict: Dict[str, Dict[str, Any]]) -> None:
-        self.console.print("\n[bold magenta]==== Snapshot Alerts ====[/bold magenta]")
-        for ticker, snap_data in snapshot_dict.items():
-            alerts = snap_data.get("Alerts", [])
-            if alerts:
-                alert_header = f"Alerts for {ticker}:"
-                self.console.print(f"[yellow]{alert_header}[/yellow]")
-                self.logger.warning(alert_header)
-
-                for a in alerts:
-                    self.console.print(f"   [red]- {a}[/red]")
-            else:
-                self.console.print(f"No snapshot alerts for [bold]{ticker}[/bold].")
+        self._print_alert_section(
+            "Snapshot Alerts",
+            {ticker: data.get("Alerts", []) for ticker, data in snapshot_dict.items()},
+            no_alert_prefix="No snapshot alerts"
+        )
 
     def _show_quarterly_alerts(self, metrics_map: Dict[str, Dict[str, Any]]) -> None:
-        self.console.print("\n[bold magenta]==== Additional Quarterly Alerts ====[/bold magenta]")
-        for ticker, data in metrics_map.items():
-            extras = data.get("extra_alerts", [])
-            if extras:
-                header = f"Quarterly-based alerts for {ticker}:"
+        self._print_alert_section(
+            "Additional Quarterly Alerts",
+            {ticker: data.get("extra_alerts", []) for ticker, data in metrics_map.items()},
+            no_alert_prefix="No extra quarterly alerts"
+        )
+
+    def _print_alert_section(
+        self,
+        section_title: str,
+        alerts_by_ticker: Dict[str, list],
+        no_alert_prefix: str = "No alerts"
+    ) -> None:
+        self.console.print(f"\n[bold magenta]==== {section_title} ====[/bold magenta]")
+        for ticker, alerts in alerts_by_ticker.items():
+            if alerts:
+                header = f"Alerts for {ticker}:"
                 self.console.print(f"[yellow]{header}[/yellow]")
                 self.logger.warning(header)
-                for alert in extras:
+                for alert in alerts:
                     self.console.print(f"   [red]- {alert}[/red]")
             else:
-                self.console.print(f"No extra quarterly alerts for [bold]{ticker}[/bold].")
+                self.console.print(f"{no_alert_prefix} for [bold]{ticker}[/bold].")
 
     def _show_multi_year_and_forecast(self, metrics_map: Dict[str, Dict[str, Any]]) -> None:
         self.console.print("\n[bold magenta]==== Multi-Year & Forecast Analysis ====[/bold magenta]")

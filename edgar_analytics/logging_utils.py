@@ -3,22 +3,25 @@ edgar_analytics/logging_utils.py
 
 Provides logging configuration with:
  - Rich colorized console logs at a chosen level.
- - JSON logs at DEBUG level stored in 'edgar_analytics_debug.jsonl'.
+ - JSON logs at DEBUG level stored in 'edgar_analytics_debug.jsonl' (with rotation).
  - Optionally suppress normal console logs if the user sets --suppress-logs.
 """
 
+import atexit
 import logging
+import logging.handlers
 import os
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from rich.logging import RichHandler
+
+_THIRD_PARTY_LOGGERS = ("edgar", "edgartools", "httpx")
+_LOG_FILE_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+_LOG_FILE_BACKUP_COUNT = 3
 
 
 class JSONFormatter(logging.Formatter):
-    """
-    Custom JSON Formatter: each log record -> single-line JSON object.
-    Useful for ingestion by log management systems (Splunk, Elastic, etc.).
-    """
+    """Custom JSON Formatter: each log record -> single-line JSON object."""
 
     def format(self, record: logging.LogRecord) -> str:
         log_record: Dict[str, Any] = {
@@ -51,65 +54,52 @@ def configure_logging(log_level: str, suppress_logs: bool = False) -> None:
         "CRITICAL": logging.CRITICAL,
     }
     chosen_level = valid_levels.get(log_level.upper(), logging.INFO)
+    console_log_level = max(chosen_level, logging.WARNING) if suppress_logs else chosen_level
 
-    # Get the edgar_analytics logger and set its level
     edgar_logger = logging.getLogger("edgar_analytics")
-
-    # JSON logs file handler at DEBUG
-    debug_file_path = os.path.join(os.getcwd(), "edgar_analytics_debug.jsonl")
-    json_formatter = JSONFormatter()
-    json_file_handler = logging.FileHandler(debug_file_path, mode='a', encoding='utf-8')
-    json_file_handler.setLevel(logging.DEBUG)
-    json_file_handler.setFormatter(json_formatter)
-
-
-    # Rich console handler
-    if suppress_logs:
-        # If user wants minimal logs, set console handler to WARNING or higher
-        console_log_level = max(chosen_level, logging.WARNING)
-    else:
-        console_log_level = chosen_level
-
-    console_handler = RichHandler(
-        level=console_log_level,
-        markup=True,
-        show_time=False,
-        show_level=True,
-        show_path=False
-    )
-
-    # Set logger level and prevent duplicate handler registration
     edgar_logger.setLevel(chosen_level)
-    
-    # Only add handlers if none exist
+
     if not edgar_logger.handlers:
+        debug_file_path = os.path.join(os.getcwd(), "edgar_analytics_debug.jsonl")
+        json_file_handler = logging.handlers.RotatingFileHandler(
+            debug_file_path, mode='a', encoding='utf-8',
+            maxBytes=_LOG_FILE_MAX_BYTES, backupCount=_LOG_FILE_BACKUP_COUNT,
+        )
+        json_file_handler.setLevel(logging.DEBUG)
+        json_file_handler.setFormatter(JSONFormatter())
+
+        console_handler = RichHandler(
+            level=console_log_level,
+            markup=True,
+            show_time=False,
+            show_level=True,
+            show_path=False
+        )
+
         edgar_logger.addHandler(json_file_handler)
         edgar_logger.addHandler(console_handler)
-    # Note: We don't update existing handlers as per ADR decision
 
-    # Third-party loggers, adjusted for noise if not DEBUG
-    third_party_loggers = ["edgar", "edgartools", "httpx"]
-    if chosen_level != logging.DEBUG:
-        for lib_name in third_party_loggers:
-            logging.getLogger(lib_name).setLevel(logging.WARNING)
+        atexit.register(_shutdown_logging)
     else:
-        for lib_name in third_party_loggers:
-            logging.getLogger(lib_name).setLevel(logging.DEBUG)
+        for h in edgar_logger.handlers:
+            if isinstance(h, logging.FileHandler):
+                h.setLevel(logging.DEBUG)
+            elif isinstance(h, RichHandler):
+                h.setLevel(console_log_level)
 
-    if chosen_level == logging.DEBUG:
-        logging.debug(
-            "[bold magenta]Console log level: DEBUG.[/bold magenta] "
-            f"Detailed JSON logs in '{debug_file_path}'."
-        )
-    else:
-        logging.info(
-            f"[bold green]Console log level: {log_level.upper()}[/bold green]. "
-            f"Detailed DEBUG logs in JSON => '{debug_file_path}'."
-        )
+    third_party_level = logging.DEBUG if chosen_level == logging.DEBUG else logging.WARNING
+    for lib_name in _THIRD_PARTY_LOGGERS:
+        logging.getLogger(lib_name).setLevel(third_party_level)
+
+
+def _shutdown_logging() -> None:
+    """Flush and close all handlers on the edgar_analytics logger."""
+    edgar_logger = logging.getLogger("edgar_analytics")
+    for handler in edgar_logger.handlers:
+        handler.flush()
+        handler.close()
 
 
 def get_logger(name: str = __name__) -> logging.Logger:
-    """
-    Return a standard Python logger for the given module-level name.
-    """
+    """Return a standard Python logger for the given module-level name."""
     return logging.getLogger(name)

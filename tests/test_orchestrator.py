@@ -88,6 +88,9 @@ def test_analyze_company_invalid_peer(caplog):
     Invalid peer scenario: should log a warning and skip that peer.
     """
     with patch("edgar_analytics.orchestrator.Company") as mock_company, \
+         patch("edgar_analytics.orchestrator.set_identity"), \
+         patch("edgar_analytics.multi_period_analysis.Company"), \
+         patch("edgar_analytics.multi_period_analysis.MultiFinancials"), \
          caplog.at_level(logging.WARNING, logger="edgar_analytics.orchestrator"):
         mock_company.return_value = MagicMock()
 
@@ -103,7 +106,8 @@ def test_analyze_company_exception_in_creation(caplog):
     If creating the Company object raises an Exception, it should log an error
     and skip further processing.
     """
-    with patch("edgar_analytics.orchestrator.Company", side_effect=Exception("Creation error")):
+    with patch("edgar_analytics.orchestrator.Company", side_effect=Exception("Creation error")), \
+         patch("edgar_analytics.orchestrator.set_identity"):
         orchestrator = TickerOrchestrator()
         orchestrator.analyze_company("AAPL", peers=[])
 

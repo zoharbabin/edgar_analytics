@@ -14,10 +14,16 @@ from .logging_utils import get_logger
 
 logger = get_logger(__name__)
 
+_YEAR_RE = re.compile(r"(20[0-9]{2}|19[0-9]{2})")
+_QUARTER_RE = re.compile(r"Q([1-4])[\s\-_]*((?:20|19)[0-9]{2})", re.IGNORECASE)
+
+_QUARTER_MONTH = {1: 3, 2: 6, 3: 9, 4: 12}
+_QUARTER_DAY = {3: 31, 6: 30, 9: 30, 12: 31}
+
 
 def parse_period_label(col_name: str) -> datetime.date:
     """
-    Attempt to parse '2021-12-31', 'FY2023', '2021' into a date.
+    Attempt to parse '2021-12-31', 'FY2023', 'Q1-2023', '2021' into a date.
     Return 1900-01-01 if parse fails. Used for sorting columns by time.
     """
     patterns = ["%Y-%m-%d", "%Y/%m/%d", "%Y-%m", "%Y"]
@@ -27,6 +33,13 @@ def parse_period_label(col_name: str) -> datetime.date:
             return datetime.date(yr, 12, 31)
         except ValueError:
             pass
+
+    qtr_match = _QUARTER_RE.match(col_name)
+    if qtr_match:
+        q_num = int(qtr_match.group(1))
+        yr = int(qtr_match.group(2))
+        month = _QUARTER_MONTH[q_num]
+        return datetime.date(yr, month, _QUARTER_DAY[month])
 
     for pat in patterns:
         try:
@@ -38,7 +51,7 @@ def parse_period_label(col_name: str) -> datetime.date:
         except ValueError:
             continue
 
-    year_match = re.search(r"(20[0-9]{2}|19[0-9]{2})", col_name)
+    year_match = _YEAR_RE.search(col_name)
     if year_match:
         yr = int(year_match.group(1))
         return datetime.date(yr, 12, 31)
@@ -48,10 +61,9 @@ def parse_period_label(col_name: str) -> datetime.date:
 
 
 def custom_float_format(x):
-    """
-    Formats numeric x to a short string with K, M, B, T or .2f if <1000.
-    Non-numerics are returned as-is.
-    """
+    """Formats numeric x to a short string with K, M, B, T or .2f if <1000."""
+    if isinstance(x, float) and (np.isnan(x) or np.isinf(x)):
+        return "N/A"
     if isinstance(x, (int, float)):
         abs_x = abs(x)
         if abs_x >= 1e12:
@@ -67,9 +79,7 @@ def custom_float_format(x):
 
 
 def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
-    """
-    Safely convert various object types to a DataFrame or return empty if not feasible.
-    """
+    """Safely convert various object types to a DataFrame or return empty if not feasible."""
     if possible_df is None:
         logger.debug("ensure_dataframe(%s): None -> empty DF", debug_label)
         return pd.DataFrame()
@@ -101,17 +111,13 @@ def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
 
 
 def make_numeric_df(df: pd.DataFrame, debug_label="(unknown)") -> pd.DataFrame:
-    """
-    Converts columns to numeric where possible. Logs changes in non-null counts.
-    """
+    """Converts columns to numeric where possible. Returns a new DataFrame."""
     if not isinstance(df, pd.DataFrame) or df.empty:
         logger.debug("make_numeric_df(%s): invalid or empty DF -> skip", debug_label)
         return df
 
-    numeric_df = df.copy()
-    pre_non_null = numeric_df.notnull().sum().sum()
-    for col in numeric_df.columns:
-        numeric_df[col] = pd.to_numeric(numeric_df[col], errors="coerce")
+    pre_non_null = df.notnull().sum().sum()
+    numeric_df = df.apply(pd.to_numeric, errors="coerce")
     post_non_null = numeric_df.notnull().sum().sum()
 
     logger.debug(

@@ -26,8 +26,7 @@ def test_retrieve_multi_year_data_no_10k():
         # "MultiFinancials(...)" is replaced with mock_mf
         data = retrieve_multi_year_data("FAKE", n_years=2, n_quarters=2)
 
-    # Then test your expectations
-    assert data["annual_inc_df"].empty
+    assert data["annual_data"] == {"Revenue": {}, "Net Income": {}}
 
 def test_extract_period_values():
     df = pd.DataFrame({
@@ -46,10 +45,22 @@ def test_extract_period_values_empty():
 def test_compute_growth_series():
     data = {"2020-12-31": 100, "2021-12-31": 200, "2022-12-31": 180}
     growth = compute_growth_series(data)
-    # 2021 => 100 to 200 => +100%
-    # 2022 => 200 to 180 => -10%
     assert growth["2021-12-31"] == pytest.approx(100.0)
     assert growth["2022-12-31"] == pytest.approx(-10.0)
+
+
+def test_compute_growth_series_negative_to_positive():
+    """Growth from -100 to +50: uses abs(base) so improvement shows as +150%."""
+    data = {"2020-12-31": -100, "2021-12-31": 50}
+    growth = compute_growth_series(data)
+    assert growth["2021-12-31"] == pytest.approx(150.0)
+
+
+def test_compute_growth_series_negative_to_more_negative():
+    """Growth from -100 to -200: uses abs(base) so worsening shows as -100%."""
+    data = {"2020-12-31": -100, "2021-12-31": -200}
+    growth = compute_growth_series(data)
+    assert growth["2021-12-31"] == pytest.approx(-100.0)
 
 def test_compute_growth_series_insufficient():
     data = {"2020-12-31": 100}
@@ -58,10 +69,21 @@ def test_compute_growth_series_insufficient():
 
 def test_compute_cagr():
     data = {"2020": 100, "2023": 200}
-    # 3 years difference (2023 - 2020)
-    # CAGR = (200/100)^(1/3) - 1 => ~26%
+    # ~3 years difference => CAGR = (200/100)^(1/3) - 1 => ~26%
     result = compute_cagr(data)
-    assert result == pytest.approx(26.0, abs=5.0)  # within reason
+    assert result == pytest.approx(26.0, abs=5.0)
+
+
+def test_compute_cagr_negative_last_val():
+    """Negative last value returns 0.0 instead of crashing."""
+    data = {"2020": 100, "2023": -50}
+    assert compute_cagr(data) == 0.0
+
+
+def test_compute_cagr_same_year():
+    """Same-year data returns 0.0 (period too short)."""
+    data = {"2023-01-01": 100, "2023-03-01": 110}
+    assert compute_cagr(data) == 0.0
 
 def test_analyze_quarterly_balance_sheets_no_filings():
     mock_company = MagicMock()

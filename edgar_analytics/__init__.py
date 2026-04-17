@@ -33,6 +33,7 @@ from .multi_period_analysis import (
 )
 from .synonyms_utils import (
     find_synonym_value,
+    find_best_synonym_row,
     flip_sign_if_negative_expense,
     compute_capex_single_period,
     compute_capex_for_column,
@@ -57,6 +58,7 @@ __all__ = [
     "analyze_quarterly_balance_sheets",
     "check_additional_alerts_quarterly",
     "find_synonym_value",
+    "find_best_synonym_row",
     "flip_sign_if_negative_expense",
     "compute_capex_single_period",
     "compute_capex_for_column",

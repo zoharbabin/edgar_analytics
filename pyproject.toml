@@ -5,3 +5,8 @@ requires = [
     "build"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that take a long time (e.g. network calls)",
+]

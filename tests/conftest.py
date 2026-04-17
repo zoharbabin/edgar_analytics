@@ -6,7 +6,21 @@ Pytest will automatically discover these fixtures for any test
 in this directory or subdirectories.
 """
 
+import logging
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _reset_logging_handlers():
+    """Ensure logging handlers are cleaned up between tests to prevent
+    handler accumulation and file descriptor leaks."""
+    yield
+    edgar_logger = logging.getLogger("edgar_analytics")
+    for handler in edgar_logger.handlers[:]:
+        handler.flush()
+        handler.close()
+    edgar_logger.handlers.clear()
+
 
 @pytest.fixture
 def dummy_metrics_map():
@@ -52,8 +66,5 @@ def dummy_metrics_map():
 
 @pytest.fixture
 def empty_metrics_map():
-    """
-    Returns an empty dict, simulating zero data available in metrics_map.
-    Summarize_metrics_table should handle this gracefully.
-    """
+    """Returns an empty dict, simulating zero data available in metrics_map."""
     return {}

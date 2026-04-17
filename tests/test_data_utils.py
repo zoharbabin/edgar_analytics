@@ -105,3 +105,25 @@ def test_make_numeric_df_conversion():
 def test_parse_period_label_fallback_no_digits():
     parsed = parse_period_label("ABCDE")  # no digits, doesn't match "FY"
     assert str(parsed) == "1900-01-01", f"Expected fallback date, got {parsed}"
+
+
+def test_parse_period_label_quarter_formats():
+    """Quarter-based labels should parse to the quarter-end date."""
+    assert parse_period_label("Q1-2023") == pd.Timestamp("2023-03-31").date()
+    assert parse_period_label("Q2-2023") == pd.Timestamp("2023-06-30").date()
+    assert parse_period_label("Q3-2023") == pd.Timestamp("2023-09-30").date()
+    assert parse_period_label("Q4-2023") == pd.Timestamp("2023-12-31").date()
+    assert parse_period_label("Q1 2022") == pd.Timestamp("2022-03-31").date()
+    assert parse_period_label("Q4_2021") == pd.Timestamp("2021-12-31").date()
+
+
+def test_parse_period_label_quarter_sorting():
+    """Quarters within the same year should sort chronologically."""
+    labels = ["Q3-2023", "Q1-2023", "Q4-2023", "Q2-2023"]
+    sorted_labels = sorted(labels, key=parse_period_label)
+    assert sorted_labels == ["Q1-2023", "Q2-2023", "Q3-2023", "Q4-2023"]
+
+
+def test_custom_float_format_nan():
+    assert custom_float_format(float("nan")) == "N/A"
+    assert custom_float_format(float("inf")) == "N/A"

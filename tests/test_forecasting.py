@@ -42,6 +42,8 @@ def test_forecast_enough_data():
     mock ARIMA to always return e.g. 500 => forecast=500.0
     """
     rev_dict = {
+        "2016": 50,
+        "2017": 80,
         "2018": 100,
         "2019": 200,
         "2020": 300,
@@ -62,6 +64,8 @@ def test_forecast_arima_fit_error():
     If there's an error in ARIMA model fitting => fallback=0.0
     """
     rev_dict = {
+        "2016": 50,
+        "2017": 80,
         "2018": 100,
         "2019": 200,
         "2020": 300,
@@ -75,9 +79,11 @@ def test_forecast_arima_fit_error():
 
 def test_forecast_negative_result():
     """
-    If the model forecasts negative => clamp to 0.0 
+    If the model forecasts negative => clamp to 0.0
     """
     rev_dict = {
+        "2016": 50,
+        "2017": 80,
         "2018": 100,
         "2019": 200,
         "2020": 300,
@@ -99,7 +105,13 @@ def test_forecast_quarterly_sarimax():
         "2019-Q3": 180,
         "2019-Q4": 210,
         "2020-Q1": 230,
-        "2020-Q2": 240,  # Now 6 data points
+        "2020-Q2": 240,
+        "2020-Q3": 260,
+        "2020-Q4": 290,
+        "2021-Q1": 310,
+        "2021-Q2": 330,
+        "2021-Q3": 350,
+        "2021-Q4": 380,
     }
     with patch("edgar_analytics.forecasting.SARIMAX") as mock_sarimax, \
          patch("edgar_analytics.forecasting.ARIMA") as mock_arima:

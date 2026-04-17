@@ -6,8 +6,8 @@ fetching data, computing metrics, multi-year analysis, forecasting,
 and final reporting.
 """
 
+import os
 import re
-import logging
 from typing import Dict, Any, List, Optional
 from edgar import Company, set_identity
 
@@ -78,7 +78,12 @@ class TickerOrchestrator:
         if identity:
             set_identity(identity)
         else:
-            set_identity("Your Name <your.email@example.com>")
+            self.logger.warning(
+                "No --identity provided. SEC EDGAR requires a valid identity "
+                "(e.g. 'Name <email>'). Set via --identity or EDGAR_IDENTITY env var."
+            )
+            env_identity = os.environ.get("EDGAR_IDENTITY", "edgar-analytics <edgar-analytics@users.noreply.github.com>")
+            set_identity(env_identity)
 
         self.logger.info("Analyzing company: %s", ticker)
 
@@ -91,8 +96,6 @@ class TickerOrchestrator:
         )
         metrics_map[ticker] = main_data
 
-        # Because the test expects EXACT string "Comparing AAPL with peers: ['MSFT', 'GOOGL']"
-        # we must build it exactly:
         peer_list_str = "[" + ", ".join(f"'{p}'" for p in peers) + "]"
         self.logger.info("Comparing %s with peers: %s", ticker, peer_list_str)
 

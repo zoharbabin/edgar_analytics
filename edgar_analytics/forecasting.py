@@ -23,7 +23,8 @@ try:
 except ImportError:
     HAS_STATSMODELS = False
 
-MIN_DATA_POINTS = 4
+MIN_DATA_POINTS = 6
+MIN_SEASONAL_DATA_POINTS = 12
 
 
 class ForecastStrategy(abc.ABC):
@@ -78,26 +79,26 @@ class ArimaForecastStrategy(ForecastStrategy):
                 warnings.simplefilter("ignore")
 
                 candidates = []
-                if len(series_vals) < 6:
+                if len(series_vals) < 8:
                     candidates = [
                         ARIMA(series_vals, order=(0, 1, 1)),
                         ARIMA(series_vals, order=(1, 1, 0)),
                     ]
                 else:
-                    # Larger data set => test a few model orders
                     candidates = [
                         ARIMA(series_vals, order=(1, 1, 1)),
                         ARIMA(series_vals, order=(1, 1, 0)),
                         ARIMA(series_vals, order=(0, 1, 1)),
                     ]
-                    if is_quarterly:
+                    if is_quarterly and len(series_vals) >= MIN_SEASONAL_DATA_POINTS:
                         candidates.append(
                             SARIMAX(
                                 series_vals,
                                 order=(1, 1, 1),
-                                seasonal_order=(1, 1, 1, 4),
+                                seasonal_order=(1, 0, 1, 4),
                                 trend='c',
-                                enforce_stationarity=False
+                                enforce_stationarity=True,
+                                enforce_invertibility=True,
                             )
                         )
 

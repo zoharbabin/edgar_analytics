@@ -33,48 +33,51 @@ def mock_multifin():
     return mock_mf
 
 @pytest.fixture(autouse=True)
-def setup_logging():
+def _setup_logging():
     """Configure logging before each test."""
     configure_logging("INFO", suppress_logs=False)
-    yield
 
+@patch("edgar_analytics.orchestrator.set_identity")
+@patch("edgar_analytics.multi_period_analysis.Company")
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
 @patch("edgar_analytics.orchestrator.Company")
 @pytest.mark.slow
 def test_cli_no_peers(
-    mock_Company, 
-    mock_MultiFinancials, 
-    mock_company, 
-    mock_multifin, 
-    runner, 
-    caplog
-):
-    """
-    Test the CLI with a single ticker and no peers.
-    """
-    # Any time orchestrator calls 'Company(ticker)', return our mock_company
-    mock_Company.return_value = mock_company
-    # Any time multi_period_analysis calls 'MultiFinancials(...)', return our mock_mf
-    mock_MultiFinancials.return_value = mock_multifin
-
-    with caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
-        result = runner.invoke(main, ["AAPL"])
-        assert result.exit_code == 0
-        print(caplog.text)
-        assert "Analyzing company: AAPL" in caplog.text
-
-
-@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
-@patch("edgar_analytics.orchestrator.Company")
-def test_cli_with_peers(
-    mock_Company,
+    mock_OrcCompany,
     mock_MultiFinancials,
+    mock_MPACompany,
+    mock_set_identity,
     mock_company,
     mock_multifin,
     runner,
     caplog
 ):
-    mock_Company.return_value = mock_company
+    mock_OrcCompany.return_value = mock_company
+    mock_MPACompany.return_value = mock_company
+    mock_MultiFinancials.return_value = mock_multifin
+
+    with caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
+        result = runner.invoke(main, ["AAPL"])
+        assert result.exit_code == 0
+        assert "Analyzing company: AAPL" in caplog.text
+
+
+@patch("edgar_analytics.orchestrator.set_identity")
+@patch("edgar_analytics.multi_period_analysis.Company")
+@patch("edgar_analytics.multi_period_analysis.MultiFinancials")
+@patch("edgar_analytics.orchestrator.Company")
+def test_cli_with_peers(
+    mock_OrcCompany,
+    mock_MultiFinancials,
+    mock_MPACompany,
+    mock_set_identity,
+    mock_company,
+    mock_multifin,
+    runner,
+    caplog
+):
+    mock_OrcCompany.return_value = mock_company
+    mock_MPACompany.return_value = mock_company
     mock_MultiFinancials.return_value = mock_multifin
 
     result = runner.invoke(main, ["AAPL", "MSFT", "GOOGL"])
@@ -82,18 +85,23 @@ def test_cli_with_peers(
     assert "Comparing AAPL with peers: ['MSFT', 'GOOGL']" in caplog.text
 
 
+@patch("edgar_analytics.orchestrator.set_identity")
+@patch("edgar_analytics.multi_period_analysis.Company")
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
 @patch("edgar_analytics.orchestrator.Company")
 def test_cli_with_csv(
-    mock_Company,
+    mock_OrcCompany,
     mock_MultiFinancials,
+    mock_MPACompany,
+    mock_set_identity,
     mock_company,
     mock_multifin,
     runner,
     tmp_path,
     caplog
 ):
-    mock_Company.return_value = mock_company
+    mock_OrcCompany.return_value = mock_company
+    mock_MPACompany.return_value = mock_company
     mock_MultiFinancials.return_value = mock_multifin
 
     csv_file = tmp_path / "out.csv"
@@ -104,19 +112,24 @@ def test_cli_with_csv(
         assert "Snapshot summary saved to" in caplog.text
 
 
+@patch("edgar_analytics.orchestrator.set_identity")
+@patch("edgar_analytics.multi_period_analysis.Company")
 @patch("edgar_analytics.multi_period_analysis.MultiFinancials")
 @patch("edgar_analytics.orchestrator.Company")
 def test_cli_invalid_ticker(
-    mock_Company,
+    mock_OrcCompany,
     mock_MultiFinancials,
+    mock_MPACompany,
+    mock_set_identity,
     mock_company,
     mock_multifin,
     runner,
     caplog
 ):
-    mock_Company.return_value = mock_company
+    mock_OrcCompany.return_value = mock_company
+    mock_MPACompany.return_value = mock_company
     mock_MultiFinancials.return_value = mock_multifin
 
     result = runner.invoke(main, ["@BADTICKER"])
-    assert result.exit_code == 0  # or whatever you expect
+    assert result.exit_code == 0
     assert "Invalid main ticker: @BADTICKER" in caplog.text

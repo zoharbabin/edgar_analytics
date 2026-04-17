@@ -242,7 +242,7 @@ Below is a select reference for the most commonly used methods. For a deeper or 
 | **`cli.main()`**                                 | Entry point for the CLI (`edgar-analytics`).                                                                                                                       | **CLI**: Invoked by console script. Not typically called directly in Python code.                                                                                                            |
 | **`TickerOrchestrator.analyze_company()`**       | Orchestrates data retrieval, multi-year analysis, forecasting, and final reporting for a main ticker + optional peers.                                            | **Python**: <br/>```python<br/>orch = TickerOrchestrator()<br/>orch.analyze_company("AAPL", ["MSFT"], csv_path="out.csv")<br/>```                                                           |
 | **`metrics.get_single_filing_snapshot()`**       | Retrieves the latest 10-K or 10-Q for a Company, parses it into a dictionary of metrics + filing info.                                                             | **Internally** used by `_analyze_ticker_for_metrics()`.                                                                                                                                     |
-| **`multi_period_analysis.retrieve_multi_year_data()`** | Fetches multiple 10-K/10-Q filings for multi-year or multi-quarter growth analysis, CAGR, etc.                                                                    | **Python**: <br/>```python<br/>data = retrieve_multi_year_data("AAPL", 3, 8)<br/>print(data["annual_data"], data["quarterly_data"])<br/>```                                                |
+| **`multi_period_analysis.retrieve_multi_year_data()`** | Fetches multiple 10-K/10-Q filings for multi-year or multi-quarter growth analysis, CAGR, etc. Returns `annual_data`, `quarterly_data`, `yoy_revenue_growth`, and `cagr_revenue`. | **Python**: <br/>```python<br/>data = retrieve_multi_year_data("AAPL", 3, 8)<br/>print(data["annual_data"], data["cagr_revenue"])<br/>```                                                |
 | **`forecasting.forecast_revenue()`**             | **Main entry** for forecasting next revenue (1-step) using a specified or default strategy (`ArimaForecastStrategy`). Clamps negatives to 0.0.                    | **CLI**: Called under the hood by the Orchestrator. <br/>**Python**: <br/>```python<br/>from edgar_analytics.forecasting import forecast_revenue<br/>fcst = forecast_revenue(rev_dict)``` |
 | **`forecasting.ArimaForecastStrategy`**          | Default ARIMA-based strategy that tries ARIMA/SARIMAX model candidates and picks one by AIC.                                                                       | **Custom**: <br/>```python<br/>strategy = ArimaForecastStrategy()<br/>fcst = forecast_revenue(rev_data, strategy=strategy)<br/>```                                                         |
 | **`reporting.ReportingEngine.summarize_metrics_table()`** | Builds a final summary of metrics for all tickers, renders rich console output, and optionally saves to CSV.                                                      | **Internally** used by `analyze_company()`, though you can call it directly with a valid `metrics_map`.                                                                                      |
@@ -283,8 +283,10 @@ EDGAR Analytics provides two parallel logging outputs:
 2. **JSON Log File**:
    - Always written to `edgar_analytics_debug.jsonl`
    - Contains all logs at DEBUG level (and above) in structured JSON
+   - Uses `RotatingFileHandler` (10 MB max, 3 backups) to prevent unbounded growth
    - Ideal for debugging or integration with log management systems
    - Includes detailed context (file, line number, function name)
+   - Handlers are flushed and closed on process exit via `atexit`
 
 ### Test Logging & Ticker Orchestrator
 
@@ -299,7 +301,7 @@ EDGAR Analytics provides two parallel logging outputs:
 **EDGAR Analytics** is modular, letting you add or override behavior easily:
 
 1. **Synonyms**: Extend or override synonyms in `synonyms.py` for custom labeling.
-2. **Alert Thresholds**: `config.py` contains thresholds for negative margins, high leverage, and negative FCF streaks.
+2. **Alert Thresholds**: `config.py` contains all alert thresholds (negative margins, high leverage, net debt/EBITDA, interest coverage, FCF streaks, inventory/receivables spikes).
 3. **Additional Metrics**: Add new ratio logic to `metrics.py` or wherever suitable.
 4. **Custom Forecast Strategies**:  
    - The library exposes a `ForecastStrategy` abstract base class in `forecasting.py`.

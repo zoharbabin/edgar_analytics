@@ -19,9 +19,19 @@ from .synonyms_utils import (
     flip_sign_if_negative_expense,
     compute_capex_single_period
 )
+from .data_utils import ensure_dataframe, make_numeric_df
 from .logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+
+def _get_financial_statement(financials, statement_type: str):
+    """Retrieve a financial statement, handling both old method-based and new
+    property-based edgartools APIs transparently."""
+    method_name = f"get_{statement_type}"
+    if hasattr(financials, method_name) and callable(getattr(financials, method_name)):
+        return getattr(financials, method_name)()
+    return getattr(financials, statement_type, None)
 
 
 def compute_ratios_and_metrics(
@@ -55,19 +65,26 @@ def compute_ratios_and_metrics(
     cost_rev = flip_sign_if_negative_expense(cost_rev, "cost_of_revenue")
     op_exp = flip_sign_if_negative_expense(op_exp, "operating_expenses")
 
-    if pd.isna(gross_profit) and revenue != 0.0:
-        gross_profit = revenue - cost_rev
+    # ========== DEPRECIATION & D&A-IN-COGS ADJUSTMENT ==========
+    dep_amort = find_synonym_value(income_df, SYNONYMS["depreciation_amortization"], 0.0, "INC->DepAmort")
+    dep_amort = flip_sign_if_negative_expense(dep_amort, "depreciation_amortization")
+    cost_rev, dep_amort = adjust_for_dep_in_cogs(income_df, cost_rev, dep_amort)
+
+    if pd.isna(gross_profit):
+        gross_profit = revenue - cost_rev if revenue != 0.0 else 0.0
 
     metrics["Revenue"] = revenue
-    metrics["Gross Profit"] = 0.0 if pd.isna(gross_profit) else gross_profit
+    metrics["CostOfRev"] = cost_rev
+    metrics["Gross Profit"] = gross_profit
     metrics["Gross Margin %"] = (gross_profit / revenue * 100.0) if revenue else 0.0
-
-    # Approx Operating Income
-    operating_income_approx = gross_profit - op_exp
-    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else 0.0
-    metrics["Operating Expenses"] = op_exp
+    metrics["OpEx"] = op_exp
     metrics["Net Income"] = net_income
     metrics["Net Margin %"] = ((net_income / revenue) * 100.0) if revenue else 0.0
+
+    operating_income_approx = gross_profit - op_exp
+    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else 0.0
+    metrics["EBIT (approx)"] = operating_income_approx
+    metrics["EBITDA (approx)"] = operating_income_approx + dep_amort
 
     # ========== BALANCE SHEET ==========
     curr_assets = find_synonym_value(balance_df, SYNONYMS["current_assets"], 0.0, "BS->CurrAssets")
@@ -77,34 +94,30 @@ def compute_ratios_and_metrics(
     total_equity = find_synonym_value(balance_df, SYNONYMS["total_equity"], 0.0, "BS->TotalEquity")
 
     metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs else 0.0
-    metrics["Debt-to-Equity"] = (total_liabs / total_equity) if total_equity else 0.0
+
+    if total_equity < 0:
+        metrics["Debt-to-Equity"] = np.nan
+    elif total_equity == 0:
+        metrics["Debt-to-Equity"] = np.nan
+    else:
+        metrics["Debt-to-Equity"] = total_liabs / total_equity
     metrics["Equity Ratio %"] = ((total_equity / total_assets) * 100.0) if total_assets else 0.0
 
     # ========== CASH FLOW STATEMENT ==========
-    # Operating CF
     op_cf = find_synonym_value(cash_df, SYNONYMS["cash_flow_operating"], 0.0, "CF->OpCF")
-
-    # CapEx using new consolidated logic
     capex_val = compute_capex_single_period(cash_df, debug_label="CF->CapExSingle")
 
     free_cf = op_cf - capex_val
     metrics["Cash from Operations"] = op_cf
     metrics["Free Cash Flow"] = free_cf
 
-    # ========== DEPRECIATION, ETC. ==========
-    dep_amort = find_synonym_value(income_df, SYNONYMS["depreciation_amortization"], 0.0, "INC->DepAmort")
-    dep_amort = flip_sign_if_negative_expense(dep_amort, "depreciation_amortization")
-    cost_rev, dep_amort = adjust_for_dep_in_cogs(income_df, cost_rev, dep_amort)
-
-    metrics["CostOfRev"] = cost_rev
-    metrics["OpEx"] = op_exp
-
-    operating_income_approx = (gross_profit - op_exp)
-    metrics["EBIT (approx)"] = operating_income_approx
-    metrics["EBITDA (approx)"] = operating_income_approx + dep_amort
-
     # ========== ROE / ROA ==========
-    metrics["ROE %"] = ((net_income / total_equity) * 100.0) if total_equity else 0.0
+    if total_equity > 0:
+        metrics["ROE %"] = (net_income / total_equity) * 100.0
+    elif total_equity < 0:
+        metrics["ROE %"] = np.nan
+    else:
+        metrics["ROE %"] = 0.0
     metrics["ROA %"] = ((net_income / total_assets) * 100.0) if total_assets else 0.0
 
     # ========== IFRS/GAAP EXPANSIONS ==========
@@ -125,7 +138,7 @@ def compute_ratios_and_metrics(
 
     net_intangibles = intangible_val + goodwill_val
     tangible_equity = total_equity - net_intangibles
-    metrics["Tangible Equity"] = max(tangible_equity, 0.0)
+    metrics["Tangible Equity"] = tangible_equity
 
     total_leases = oper_lease_val + fin_lease_val
     gross_debt = short_debt_val + long_debt_val + total_leases
@@ -133,7 +146,10 @@ def compute_ratios_and_metrics(
     metrics["Net Debt"] = net_debt
 
     ebitda_approx = metrics["EBITDA (approx)"]
-    metrics["Net Debt/EBITDA"] = (net_debt / ebitda_approx) if ebitda_approx != 0 else 0.0
+    if ebitda_approx > 0:
+        metrics["Net Debt/EBITDA"] = net_debt / ebitda_approx
+    else:
+        metrics["Net Debt/EBITDA"] = np.nan
     metrics["Lease Liabilities Ratio %"] = ((total_leases / total_assets) * 100.0) if total_assets else 0.0
 
     # ========== INTEREST EXPENSE / TAX EXPENSE / STANDARD EBIT & EBITDA ==========
@@ -142,29 +158,47 @@ def compute_ratios_and_metrics(
     metrics["Interest Expense"] = interest_exp
 
     income_tax_val = find_synonym_value(income_df, SYNONYMS["income_tax_expense"], 0.0, "INC->TaxExpense")
-    if income_tax_val < 0.0:
-        income_tax_val = abs(income_tax_val)
+    # Tax expense is kept as-is: positive = expense, negative = benefit (e.g. deferred tax).
+    # EBIT = NI + Interest + Tax uses the signed value for financial accuracy.
     metrics["Income Tax Expense"] = income_tax_val
 
     ebit_standard = net_income + interest_exp + income_tax_val
     metrics["EBIT (standard)"] = ebit_standard
     metrics["EBITDA (standard)"] = ebit_standard + dep_amort
-    metrics["Interest Coverage"] = (ebit_standard / interest_exp) if interest_exp != 0.0 else 0.0
+    metrics["Interest Coverage"] = (ebit_standard / interest_exp) if interest_exp > 0.0 else np.nan
 
     # ========== ALERTS ==========
     alerts = []
     if metrics["Net Margin %"] < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
         alerts.append(f"Net margin below {ALERTS_CONFIG['NEGATIVE_MARGIN']}% (negative)")
-    if metrics["Debt-to-Equity"] > ALERTS_CONFIG["HIGH_LEVERAGE"]:
+
+    de_ratio = metrics["Debt-to-Equity"]
+    if pd.notna(de_ratio) and de_ratio > ALERTS_CONFIG["HIGH_LEVERAGE"]:
         alerts.append(f"Debt-to-Equity above {ALERTS_CONFIG['HIGH_LEVERAGE']} (high leverage)")
-    if 0.0 < metrics["ROE %"] < ALERTS_CONFIG["LOW_ROE"]:
+    if total_equity < 0:
+        alerts.append("Negative shareholders' equity (potential insolvency)")
+
+    roe = metrics["ROE %"]
+    if pd.notna(roe) and 0.0 < roe < ALERTS_CONFIG["LOW_ROE"]:
         alerts.append(f"ROE < {ALERTS_CONFIG['LOW_ROE']}%")
     if 0.0 < metrics["ROA %"] < ALERTS_CONFIG["LOW_ROA"]:
         alerts.append(f"ROA < {ALERTS_CONFIG['LOW_ROA']}%")
-    if metrics["Net Debt"] > 0 and metrics["Net Debt/EBITDA"] > 3.5:
-        alerts.append("Net Debt/EBITDA above 3.5 (heavy leverage).")
-    if metrics["Interest Coverage"] != 0.0 and metrics["Interest Coverage"] < 2.0:
-        alerts.append("Interest coverage below 2.0 => potential default risk.")
+
+    if tangible_equity < 0:
+        alerts.append("Negative tangible equity (intangibles exceed equity)")
+
+    net_debt_ebitda = metrics["Net Debt/EBITDA"]
+    net_debt_threshold = ALERTS_CONFIG["NET_DEBT_EBITDA_THRESHOLD"]
+    if metrics["Net Debt"] > 0:
+        if pd.isna(net_debt_ebitda):
+            alerts.append("Net Debt positive but EBITDA non-positive => leverage ratio undefined.")
+        elif net_debt_ebitda > net_debt_threshold:
+            alerts.append(f"Net Debt/EBITDA above {net_debt_threshold} (heavy leverage).")
+
+    interest_cov = metrics["Interest Coverage"]
+    interest_cov_threshold = ALERTS_CONFIG["INTEREST_COVERAGE_THRESHOLD"]
+    if pd.notna(interest_cov) and interest_cov < interest_cov_threshold:
+        alerts.append(f"Interest coverage below {interest_cov_threshold} => potential default risk.")
 
     metrics["Alerts"] = alerts
     return metrics
@@ -188,37 +222,23 @@ def adjust_for_dep_in_cogs(
         income_df, SYNONYMS.get("depreciation_in_cost_of_sales", []), 0.0, "INC->DepInCOGS"
     )
     if dep_in_cogs != 0.0:
+        dep_in_cogs_abs = abs(dep_in_cogs)
         logger.debug(
-            "Depreciation in cost of sales found = %.2f. Adjusting cost_of_revenue & D&A.",
-            dep_in_cogs
+            "Depreciation in cost of sales found = %.2f (abs=%.2f). Adjusting cost_of_revenue & D&A.",
+            dep_in_cogs, dep_in_cogs_abs
         )
-        cost_of_revenue -= dep_in_cogs
-        dep_amort += dep_in_cogs
+        cost_of_revenue -= dep_in_cogs_abs
+        dep_amort += dep_in_cogs_abs
 
     return cost_of_revenue, dep_amort
 
 
 def get_filing_info(filing_obj) -> dict:
-    """
-    Extract form, filing_date, company name, and accession_no from an edgar.Filing object.
-
-    :param filing_obj: The Filing object from 'edgar' library
-    :return: A dict with 'form_type', 'filed_date', 'company', 'accession_no'.
-    """
-    info = {}
-    if filing_obj:
-        info["form_type"] = filing_obj.form if filing_obj.form else "Unknown"
-        info["filed_date"] = filing_obj.filing_date if filing_obj.filing_date else "Unknown"
-        info["company"] = filing_obj.company if filing_obj.company else "Unknown"
-        info["accession_no"] = filing_obj.accession_no if filing_obj.accession_no else "Unknown"
-    else:
-        info = {
-            "form_type": "Unknown",
-            "filed_date": "Unknown",
-            "company": "Unknown",
-            "accession_no": "Unknown",
-        }
-    return info
+    """Extract form, filing_date, company name, and accession_no from an edgar.Filing object."""
+    fields = {"form_type": "form", "filed_date": "filing_date", "company": "company", "accession_no": "accession_no"}
+    if not filing_obj:
+        return {k: "Unknown" for k in fields}
+    return {k: getattr(filing_obj, attr, None) or "Unknown" for k, attr in fields.items()}
 
 
 def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
@@ -230,8 +250,6 @@ def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
     :param form_type: e.g. "10-K" or "10-Q"
     :return: dict with "metrics" and "filing_info" sub-dicts
     """
-    from .data_utils import ensure_dataframe, make_numeric_df
-
     result = {"metrics": {}, "filing_info": {}}
     tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
 
@@ -253,9 +271,9 @@ def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
         return result
 
     fin = fo.financials
-    bs_df = make_numeric_df(ensure_dataframe(fin.get_balance_sheet(), f"{tkr}-{form_type}-BS"), f"{tkr}-{form_type}-BS")
-    inc_df = make_numeric_df(ensure_dataframe(fin.get_income_statement(), f"{tkr}-{form_type}-INC"), f"{tkr}-{form_type}-INC")
-    cf_df = make_numeric_df(ensure_dataframe(fin.get_cash_flow_statement(), f"{tkr}-{form_type}-CF"), f"{tkr}-{form_type}-CF")
+    bs_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "balance_sheet"), f"{tkr}-{form_type}-BS"), f"{tkr}-{form_type}-BS")
+    inc_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-{form_type}-INC"), f"{tkr}-{form_type}-INC")
+    cf_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-{form_type}-CF"), f"{tkr}-{form_type}-CF")
 
     metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df)
     result["metrics"] = metrics

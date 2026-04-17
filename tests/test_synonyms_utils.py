@@ -6,6 +6,7 @@ import numpy as np
 
 from edgar_analytics.synonyms_utils import (
     find_synonym_value,
+    find_best_synonym_row,
     flip_sign_if_negative_expense,
     compute_capex_single_period,
     compute_capex_for_column,
@@ -141,6 +142,40 @@ def test_compute_capex_single_period_negative_result_clamped():
     assert val == pytest.approx(500.0)
 
 
+def test_find_best_synonym_row_exact():
+    df = pd.DataFrame(
+        {"2023": [100, 200], "2024": [110, 220]},
+        index=["Revenue", "Net Income"]
+    )
+    row = find_best_synonym_row(df, "revenue", debug_label="test-exact")
+    assert row is not None
+    assert row["2023"] == 100
+
+
+def test_find_best_synonym_row_partial():
+    df = pd.DataFrame(
+        {"2023": [500, 300], "2024": [550, 320]},
+        index=["Total revenue from operations", "Cost of goods sold"]
+    )
+    row = find_best_synonym_row(df, "revenue", debug_label="test-partial")
+    assert row is not None
+    assert row["2023"] == 500
+
+
+def test_find_best_synonym_row_no_match():
+    df = pd.DataFrame(
+        {"2023": [100]},
+        index=["Something unrelated"]
+    )
+    row = find_best_synonym_row(df, "revenue", debug_label="test-nomatch")
+    assert row is None
+
+
+def test_find_best_synonym_row_empty_df():
+    row = find_best_synonym_row(pd.DataFrame(), "revenue")
+    assert row is None
+
+
 def test_compute_capex_for_column_direct():
     """
     Multi-column scenario. Check direct capex in a single col.
@@ -170,3 +205,25 @@ def test_compute_capex_for_column_fallback():
     # invests= -600 => abs=600; intangible= -200 => abs=200 => fallback=400
     val_q2 = compute_capex_for_column(df, "Q2", debug_label="FallbackMultiCol")
     assert val_q2 == pytest.approx(400)
+
+
+def test_find_synonym_value_duplicate_index():
+    """When DataFrame has duplicate index entries, should not silently fallback to 0."""
+    df = pd.DataFrame(
+        {"Value": [100, 200]},
+        index=["Revenue", "Revenue"]
+    )
+    val = find_synonym_value(df, ["Revenue"], fallback=0.0, debug_label="DupIdx")
+    assert val == 100.0
+
+
+def test_find_best_synonym_row_duplicate_index():
+    """find_best_synonym_row handles duplicate index entries by taking first row."""
+    df = pd.DataFrame(
+        {"2023": [500, 999], "2024": [600, 888]},
+        index=["Revenue", "Revenue"]
+    )
+    row = find_best_synonym_row(df, "revenue", debug_label="test-dup")
+    assert row is not None
+    assert isinstance(row, pd.Series)
+    assert row["2023"] == 500
