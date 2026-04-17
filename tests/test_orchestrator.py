@@ -366,8 +366,8 @@ def test_concurrent_peer_failure_handled():
     assert "FAIL" not in result.tickers
 
 
-def test_semaphore_rate_limiting():
-    """_analyze_ticker_with_semaphore acquires the semaphore."""
+def test_time_based_rate_limiting():
+    """_analyze_ticker_with_semaphore enforces time-based rate limiting."""
     with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze:
         mock_analyze.return_value = {
             "annual_snapshot": {"metrics": {"Revenue": 100, "Alerts": []}, "filing_info": {}},
@@ -378,6 +378,7 @@ def test_semaphore_rate_limiting():
 
     assert result["annual_snapshot"]["metrics"]["Revenue"] == 100
     mock_analyze.assert_called_once_with("AAPL", n_years=3, n_quarters=10, disable_forecast=False)
+    assert TickerOrchestrator._SEC_LAST_REQUEST > 0
 
 
 # ---------------------------------------------------------------------
@@ -567,3 +568,66 @@ def test_version_in_default_identity():
 
     identity_str = mock_set.call_args[0][0]
     assert edgar_analytics.__version__ in identity_str
+
+
+# ---------------------------------------------------------------------
+#         Sloan Accrual ratio with known values
+# ---------------------------------------------------------------------
+
+def test_sloan_accrual_known_values():
+    """Sloan Accrual = (ΔWC - ΔCash - D&A) / Avg Total Assets with known inputs."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    comp = MagicMock()
+
+    current_metrics = {
+        "Revenue": 5000,
+        "_scores": {},
+        "_current_assets": 2000,
+        "_current_liabilities": 800,
+        "_cash_equivalents": 500,
+        "_dep_amort": 100,
+        "_total_assets": 10000,
+    }
+    prior_metrics = {
+        "_current_assets": 1800,
+        "_current_liabilities": 700,
+        "_cash_equivalents": 400,
+        "_dep_amort": 90,
+        "_total_assets": 9000,
+    }
+    annual_snap = {"metrics": current_metrics}
+
+    with patch("edgar_analytics.orchestrator.compute_all_scores", return_value={}), \
+         patch("edgar_analytics.orchestrator.get_prior_annual_metrics", return_value=prior_metrics):
+        orchestrator._enhance_scores_with_prior_year(comp, annual_snap, float("nan"))
+
+    # ΔWC = (2000-800) - (1800-700) = 1200 - 1100 = 100
+    # ΔCash = 500 - 400 = 100
+    # D&A = 100
+    # Avg TA = (10000 + 9000) / 2 = 9500
+    # Sloan = (100 - 100 - 100) / 9500 = -100/9500 ≈ -0.01053
+    import pytest
+    expected = (100 - 100 - 100) / 9500
+    assert current_metrics["Sloan Accrual"] == pytest.approx(expected, rel=1e-4)
+
+
+def test_sloan_accrual_nan_when_no_prior():
+    """Sloan Accrual not computed when no prior-year data is available."""
+    import math
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    comp = MagicMock()
+
+    current_metrics = {
+        "Revenue": 5000,
+        "_scores": {},
+        "_current_assets": 2000,
+        "_current_liabilities": 800,
+        "_total_assets": 10000,
+    }
+    annual_snap = {"metrics": current_metrics}
+
+    with patch("edgar_analytics.orchestrator.compute_all_scores", return_value={}), \
+         patch("edgar_analytics.orchestrator.get_prior_annual_metrics", return_value={}):
+        orchestrator._enhance_scores_with_prior_year(comp, annual_snap, float("nan"))
+
+    assert "Sloan Accrual" not in current_metrics

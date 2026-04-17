@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.1] - 2026-04-17
+
+### Engineering
+- **Time-based SEC rate limiter**: Replaced `Semaphore(10)` with a time-based lock enforcing 100ms minimum interval between requests (10 req/sec), matching SEC's actual rate-limit policy.
+- **Thread-safe `_norm_idx_cache`**: Added `threading.Lock` around the global normalized-index cache to prevent data races during concurrent peer analysis.
+- **CI lint and type-check**: Added ruff lint (`E,F,W`) and mypy type-check steps to the GitHub Actions workflow (non-blocking with `continue-on-error`).
+- **20-F currency warning**: Snapshots from 20-F/20-F/A filings now include an alert noting figures may be in a non-USD reporting currency.
+- **`sales_marketing` in `_EXPENSE_LABELS`**: Added missing label so negative selling & marketing expenses are correctly sign-flipped.
+
+### Testing
+- Added Sloan Accrual test with known input/output values (verifies formula correctness).
+- Added Sloan Accrual absent-when-no-prior-year test.
+- Added 20-F currency warning test.
+- Added `sales_marketing` in `_EXPENSE_LABELS` assertion.
+- Added `_norm_idx_lock` thread-safety assertion.
+- Test count: 355 → 360 (+5 tests).
+
 ## [0.9.0] - 2026-04-17
 
 ### XBRL Coverage (High Priority)

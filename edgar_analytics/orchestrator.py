@@ -80,7 +80,9 @@ class TickerOrchestrator:
       - Summarize results with a ReportingEngine
     """
 
-    _SEC_SEMAPHORE = threading.Semaphore(10)
+    _SEC_LOCK = threading.Lock()
+    _SEC_LAST_REQUEST = 0.0
+    _SEC_MIN_INTERVAL = 0.1
 
     def __init__(self, cache_dir: Optional[str] = None, enable_cache: bool = True) -> None:
         self.logger = logger
@@ -195,11 +197,17 @@ class TickerOrchestrator:
     def _analyze_ticker_with_semaphore(
         self, ticker: str, n_years: int, n_quarters: int, disable_forecast: bool,
     ) -> Dict[str, Any]:
-        with self._SEC_SEMAPHORE:
-            return self._analyze_ticker_for_metrics(
-                ticker, n_years=n_years, n_quarters=n_quarters,
-                disable_forecast=disable_forecast,
-            )
+        import time
+        with self._SEC_LOCK:
+            now = time.monotonic()
+            wait = self._SEC_MIN_INTERVAL - (now - self._SEC_LAST_REQUEST)
+            if wait > 0:
+                time.sleep(wait)
+            TickerOrchestrator._SEC_LAST_REQUEST = time.monotonic()
+        return self._analyze_ticker_for_metrics(
+            ticker, n_years=n_years, n_quarters=n_quarters,
+            disable_forecast=disable_forecast,
+        )
 
     def _set_identity(self, identity: Optional[str]) -> None:
         if identity:

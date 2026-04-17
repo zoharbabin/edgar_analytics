@@ -9,6 +9,7 @@ investing activities minus intangible/business acquisition outflows if direct
 capex is not found.
 """
 
+import threading
 from typing import Optional
 
 import numpy as np
@@ -22,7 +23,7 @@ logger = get_logger(__name__)
 _EXPENSE_LABELS = frozenset((
     "cost_of_revenue", "operating_expenses", "rnd_expenses",
     "interest_expense", "depreciation_amortization",
-    "general_administrative",
+    "general_administrative", "sales_marketing",
 ))
 
 
@@ -47,20 +48,23 @@ class NormalizedIndex:
 
 
 _norm_idx_cache: dict = {}
+_norm_idx_lock = threading.Lock()
 
 
 def get_normalized_index(df: pd.DataFrame) -> NormalizedIndex:
     """Return a NormalizedIndex, using a cached instance if the DataFrame's
     index object hasn't changed since the last call.  Keyed by id(df.index)."""
     key = id(df.index)
-    cached = _norm_idx_cache.get(key)
-    if cached is not None and cached[0] is df.index:
-        return cached[1]
+    with _norm_idx_lock:
+        cached = _norm_idx_cache.get(key)
+        if cached is not None and cached[0] is df.index:
+            return cached[1]
     ni = NormalizedIndex(df)
-    _norm_idx_cache[key] = (df.index, ni)
-    if len(_norm_idx_cache) > 64:
-        oldest_key = next(iter(_norm_idx_cache))
-        del _norm_idx_cache[oldest_key]
+    with _norm_idx_lock:
+        _norm_idx_cache[key] = (df.index, ni)
+        if len(_norm_idx_cache) > 64:
+            oldest_key = next(iter(_norm_idx_cache))
+            del _norm_idx_cache[oldest_key]
     return ni
 
 

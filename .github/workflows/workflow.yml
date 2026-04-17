@@ -34,6 +34,18 @@ jobs:
       - name: Create EDGAR data directory
         run: mkdir -p /home/runner/.edgar
 
+      - name: Lint (ruff)
+        run: |
+          pip install ruff
+          ruff check edgar_analytics/ tests/ --select E,F,W --ignore E501
+        continue-on-error: true
+
+      - name: Type check (mypy)
+        run: |
+          pip install mypy pandas-stubs types-requests
+          mypy edgar_analytics/ --ignore-missing-imports --no-error-summary || true
+        continue-on-error: true
+
       - name: Run tests
         run: pytest --maxfail=3 --disable-warnings -v -n auto
 

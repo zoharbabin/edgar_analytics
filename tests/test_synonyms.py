@@ -108,3 +108,14 @@ class TestSynonymsIntegrity:
         assert any("Noncurrent" in t for t in tags), (
             "Missing LongTermDebtNoncurrent"
         )
+
+    def test_sales_marketing_in_expense_labels(self):
+        """sales_marketing is in _EXPENSE_LABELS for correct sign-flipping."""
+        from edgar_analytics.synonyms_utils import _EXPENSE_LABELS
+        assert "sales_marketing" in _EXPENSE_LABELS
+
+    def test_norm_idx_cache_thread_safe(self):
+        """_norm_idx_cache uses a threading.Lock for thread safety."""
+        import threading
+        from edgar_analytics.synonyms_utils import _norm_idx_lock
+        assert isinstance(_norm_idx_lock, type(threading.Lock()))

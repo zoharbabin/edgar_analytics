@@ -453,6 +453,10 @@ def get_single_filing_snapshot(
     metrics = compute_ratios_and_metrics(
         bs_df, inc_df, cf_df, alerts_config=alerts_config, is_financial=is_financial,
     )
+    if form_type in ("20-F", "20-F/A"):
+        metrics.setdefault("Alerts", []).append(
+            "20-F filer: figures may be in a non-USD reporting currency"
+        )
     result["metrics"] = metrics
     result["filing_info"] = filing_info
     return result
