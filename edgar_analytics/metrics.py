@@ -8,6 +8,8 @@ free cash flow, EBIT, EBITDA, net margin, etc.
 Uses 'synonyms_utils.compute_capex_single_period' for safer fallback when explicit 'capital_expenditures' is absent.
 """
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from edgar import Company
@@ -39,7 +41,7 @@ def compute_ratios_and_metrics(
     balance_df: pd.DataFrame,
     income_df: pd.DataFrame,
     cash_df: pd.DataFrame,
-    alerts_config: dict | None = None,
+    alerts_config: Optional[dict] = None,
 ) -> dict:
     """
     Compute key financial ratios from the provided DataFrames (Balance, Income, Cash Flow).

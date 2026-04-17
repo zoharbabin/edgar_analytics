@@ -1,6 +1,6 @@
 # edgar_analytics/config.py
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 ALERTS_CONFIG: Dict[str, Any] = {
     "NEGATIVE_MARGIN": 0.0,
@@ -15,7 +15,7 @@ ALERTS_CONFIG: Dict[str, Any] = {
 }
 
 
-def get_alerts_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def get_alerts_config(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Return alerts config merged with optional user overrides."""
     if not overrides:
         return ALERTS_CONFIG

@@ -19,6 +19,7 @@ try:
     import yfinance as yf
     HAS_YFINANCE = True
 except ImportError:
+    yf = None  # type: ignore[assignment]
     HAS_YFINANCE = False
 
 
