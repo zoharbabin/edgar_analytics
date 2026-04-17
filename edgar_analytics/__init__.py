@@ -17,7 +17,7 @@ Quick start (programmatic)::
     print(result["MSFT"].annual_snapshot.metrics.net_margin_pct)
 """
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 from .models import (
     AnalysisResult,

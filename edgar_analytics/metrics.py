@@ -60,6 +60,7 @@ class RawMetrics(TypedDict, total=False):
     _dep_amort: float
     _sga: float
     _short_term_investments: float
+    _long_term_investments: float
     _capex: float
     _income_before_taxes: float
     _IdentityCheck: str
@@ -177,7 +178,7 @@ def compute_ratios_and_metrics(
     metrics["Free Cash Flow"] = free_cf
 
     # ========== ROE / ROA ==========
-    if total_equity != 0:
+    if total_equity > 0:
         metrics["ROE %"] = (net_income / total_equity) * 100.0
     else:
         metrics["ROE %"] = np.nan
@@ -276,6 +277,7 @@ def compute_ratios_and_metrics(
     metrics["_dep_amort"] = dep_amort
     metrics["_sga"] = sga_val
     metrics["_short_term_investments"] = st_invest_val
+    metrics["_long_term_investments"] = lt_invest_val
     metrics["_capex"] = capex_val
     metrics["_income_before_taxes"] = income_before_taxes if pd.notna(income_before_taxes) else net_income + income_tax_val
 
@@ -458,6 +460,7 @@ def get_single_filing_snapshot(
 
 def get_prior_annual_metrics(
     comp: Company, alerts_config: Optional[dict] = None,
+    is_financial: bool = False,
 ) -> dict:
     """Fetch the second-most-recent annual filing's metrics for YoY comparisons.
 
@@ -477,7 +480,7 @@ def get_prior_annual_metrics(
             bs = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "balance_sheet"), f"{tkr}-prior-BS"), f"{tkr}-prior-BS")
             inc = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-prior-INC"), f"{tkr}-prior-INC")
             cf = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-prior-CF"), f"{tkr}-prior-CF")
-            metrics = compute_ratios_and_metrics(bs, inc, cf, alerts_config=alerts_config)
+            metrics = compute_ratios_and_metrics(bs, inc, cf, alerts_config=alerts_config, is_financial=is_financial)
             if metrics:
                 logger.info("%s: Loaded prior-year metrics from %s for YoY scores.", tkr, ft)
                 return metrics

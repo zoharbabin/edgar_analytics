@@ -649,7 +649,11 @@ def compute_all_scores(
         p_sga_pct = (p_sga / p_revenue) if p_revenue > 0 else 0.0
         p_gross_margin_pct = p.get("Gross Margin %", _NAN)
         st_investments = metrics.get("_short_term_investments", 0.0)
+        lt_investments = metrics.get("_long_term_investments", 0.0)
+        total_securities = st_investments + lt_investments
         p_st_investments = p.get("_short_term_investments", 0.0)
+        p_lt_investments = p.get("_long_term_investments", 0.0)
+        p_total_securities = p_st_investments + p_lt_investments
         p_curr_assets = p.get("_current_assets", 0.0)
 
         result["beneish"] = BeneishMScore.compute(
@@ -675,8 +679,8 @@ def compute_all_scores(
             net_income=net_income,
             ppe=ppe,
             ppe_prev=p_ppe,
-            securities=st_investments,
-            securities_prev=p_st_investments,
+            securities=total_securities,
+            securities_prev=p_total_securities,
         )
 
     return result

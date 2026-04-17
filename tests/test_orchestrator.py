@@ -499,7 +499,7 @@ def test_alerts_config_threaded_to_prior_year_metrics():
         annual_snap = {"metrics": {"Revenue": 1000, "_scores": {}}}
         orchestrator._enhance_scores_with_prior_year(comp, annual_snap, float("nan"))
 
-    mock_prior.assert_called_once_with(comp, alerts_config={"HIGH_LEVERAGE": 999.0})
+    mock_prior.assert_called_once_with(comp, alerts_config={"HIGH_LEVERAGE": 999.0}, is_financial=False)
 
 
 # ---------------------------------------------------------------------

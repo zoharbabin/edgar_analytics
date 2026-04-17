@@ -285,7 +285,7 @@ class MultiYearData:
     annual_data: Dict[str, Dict[str, float]] = field(default_factory=dict)
     quarterly_data: Dict[str, Dict[str, float]] = field(default_factory=dict)
     yoy_revenue_growth: Dict[str, float] = field(default_factory=dict)
-    cagr_revenue: float = 0.0
+    cagr_revenue: float = float("nan")
     yoy_growth: Dict[str, Dict[str, float]] = field(default_factory=dict)
     cagr: Dict[str, float] = field(default_factory=dict)
     ttm: Dict[str, float] = field(default_factory=dict)

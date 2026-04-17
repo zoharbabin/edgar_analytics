@@ -268,7 +268,7 @@ class TickerOrchestrator:
             annual_snap["metrics"]["_valuation"] = valuation
 
         self._enhance_scores_with_prior_year(
-            comp, annual_snap, market_cap,
+            comp, annual_snap, market_cap, is_financial=is_financial,
         )
 
         return {
@@ -326,6 +326,7 @@ class TickerOrchestrator:
         comp: Company,
         annual_snap: dict,
         market_cap: float,
+        is_financial: bool = False,
     ) -> None:
         """Enhance existing scores with Altman (needs market_cap), Piotroski, and Beneish."""
         current_metrics = annual_snap.get("metrics")
@@ -343,12 +344,15 @@ class TickerOrchestrator:
             income_df=pd.DataFrame(),
             cash_df=pd.DataFrame(),
             market_cap=market_cap,
+            is_financial=is_financial,
         )
         if "altman" in enhanced:
             existing_scores["altman"] = enhanced["altman"]
 
         # Piotroski and Beneish require prior-period data.
-        prior_metrics = get_prior_annual_metrics(comp, alerts_config=self._alerts_config)
+        prior_metrics = get_prior_annual_metrics(
+            comp, alerts_config=self._alerts_config, is_financial=is_financial,
+        )
         if prior_metrics:
             enhanced_yoy = compute_all_scores(
                 metrics=current_metrics,
@@ -357,6 +361,7 @@ class TickerOrchestrator:
                 cash_df=pd.DataFrame(),
                 market_cap=market_cap,
                 prior_metrics=prior_metrics,
+                is_financial=is_financial,
             )
             for k in ("piotroski", "beneish"):
                 if k in enhanced_yoy:

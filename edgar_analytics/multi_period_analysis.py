@@ -294,14 +294,13 @@ def compute_growth_series(values_dict: dict) -> dict:
 
 
 def compute_cagr(values_dict: dict) -> float:
-    """
-    Compound Annual Growth Rate from earliest to latest.
-    Requires positive first and last values; returns NaN when CAGR is
-    mathematically undefined (non-positive values), 0.0 only for
-    insufficient data or too-short periods.
+    """Compound Annual Growth Rate from earliest to latest.
+
+    Returns NaN when CAGR cannot be meaningfully computed: fewer than
+    2 data points, non-positive values, or period shorter than ~3 months.
     """
     if len(values_dict) < 2:
-        return 0.0
+        return np.nan
     sorted_periods = sorted(values_dict.keys(), key=parse_period_label)
     first_val = values_dict[sorted_periods[0]]
     last_val = values_dict[sorted_periods[-1]]
@@ -311,7 +310,7 @@ def compute_cagr(values_dict: dict) -> float:
     last_date = parse_period_label(sorted_periods[-1])
     n_years = (last_date - first_date).days / 365.25
     if n_years < 0.25:
-        return 0.0
+        return np.nan
     return ((last_val / first_val) ** (1.0 / n_years) - 1.0) * 100.0
 
 

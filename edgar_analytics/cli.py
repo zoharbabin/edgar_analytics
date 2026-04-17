@@ -1,7 +1,7 @@
 # edgar_analytics/cli.py
 
 import click
-from .orchestrator import TickerOrchestrator
+from .orchestrator import TickerOrchestrator, EdgarAnalyticsError
 from .logging_utils import configure_logging
 
 @click.command()
@@ -92,9 +92,11 @@ def main(ticker, peers, csv, years, quarters, log_level, debug, disable_forecast
             disable_forecast=disable_forecast,
             identity=identity,
         )
-    except ValueError as exc:
+    except (EdgarAnalyticsError, ValueError) as exc:
         import logging
+        import sys
         logging.getLogger("edgar_analytics.cli").error(str(exc))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

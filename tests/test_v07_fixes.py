@@ -210,7 +210,7 @@ class TestVersionAttribute:
         import edgar_analytics
         assert hasattr(edgar_analytics, "__version__")
         assert isinstance(edgar_analytics.__version__, str)
-        assert edgar_analytics.__version__ == "0.8.1"
+        assert edgar_analytics.__version__ == "0.8.2"
 
 
 class TestReducedPublicSurface:

@@ -87,9 +87,17 @@ def test_compute_cagr_negative_last_val():
 
 
 def test_compute_cagr_same_year():
-    """Same-year data returns 0.0 (period too short)."""
+    """Same-year data returns NaN (period too short to annualize)."""
+    import pandas as pd
     data = {"2023-01-01": 100, "2023-03-01": 110}
-    assert compute_cagr(data) == 0.0
+    assert pd.isna(compute_cagr(data))
+
+
+def test_compute_cagr_insufficient_data():
+    """Single data point returns NaN."""
+    import pandas as pd
+    data = {"2023": 100}
+    assert pd.isna(compute_cagr(data))
 
 def test_analyze_quarterly_balance_sheets_no_filings():
     mock_company = MagicMock()

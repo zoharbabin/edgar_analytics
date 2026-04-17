@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 from edgar_analytics.cli import main
 from edgar_analytics.logging_utils import configure_logging
+from edgar_analytics.orchestrator import TickerFetchError
 
 @pytest.fixture
 def runner():
@@ -132,5 +133,20 @@ def test_cli_invalid_ticker(
 
     with caplog.at_level(logging.ERROR, logger="edgar_analytics.cli"):
         result = runner.invoke(main, ["@BADTICKER"])
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     assert "Invalid ticker symbol" in caplog.text
+
+
+@patch("edgar_analytics.orchestrator.set_identity")
+@patch("edgar_analytics.orchestrator.Company")
+def test_cli_catches_ticker_fetch_error(
+    mock_OrcCompany,
+    mock_set_identity,
+    runner,
+    caplog,
+):
+    mock_OrcCompany.side_effect = TickerFetchError("Could not resolve FAKE")
+    with caplog.at_level(logging.ERROR, logger="edgar_analytics.cli"):
+        result = runner.invoke(main, ["FAKE"])
+    assert result.exit_code == 1
+    assert "Could not resolve FAKE" in caplog.text

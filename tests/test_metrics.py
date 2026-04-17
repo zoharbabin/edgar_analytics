@@ -314,7 +314,7 @@ def test_get_financial_statement_old_api():
 
 
 def test_negative_equity_alerts_and_nan_ratios():
-    """Negative equity produces NaN D/E, computed ROE, insolvency alert (no ROE alert)."""
+    """Negative equity produces NaN D/E, NaN ROE (consistent with DuPont), insolvency alert."""
     bal_df = pd.DataFrame(
         {"Value": [1000, 3000, 2000, 3000, -1000]},
         index=["Total current assets", "Total liabilities",
@@ -332,7 +332,7 @@ def test_negative_equity_alerts_and_nan_ratios():
 
     metrics = compute_ratios_and_metrics(bal_df, inc_df, cf_df)
     assert pd.isna(metrics["Debt-to-Equity"])
-    assert metrics["ROE %"] == pytest.approx(-10.0)  # 100 / -1000 * 100
+    assert pd.isna(metrics["ROE %"])
     assert any("Negative shareholders' equity" in a for a in metrics["Alerts"])
     assert not any("ROE" in a for a in metrics["Alerts"])  # ROE alert suppressed for neg equity
 

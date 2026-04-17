@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.2] - 2026-04-17
+
+### Financial Accuracy (Significant)
+- **Beneish AQI securities fix**: AQI now includes both short-term AND long-term investments/securities (per Beneish 1999). Previously only short-term investments were passed, inflating AQI for companies with significant long-term securities holdings.
+- **CAGR consistency**: Returns NaN (not 0.0) for insufficient data and too-short periods. Semantically correct — NaN means "cannot compute," not "no growth."
+- **ROE consistency**: `metrics.py` now returns NaN for negative equity, matching DuPont decomposition behavior. Previously metrics.py computed a misleading negative-equity ROE while DuPont returned NaN for the same input.
+
+### Engineering (Significant)
+- **CLI catches TickerFetchError**: CLI now catches `EdgarAnalyticsError` (parent of `TickerFetchError`) and exits with code 1. Previously, network/resolution failures produced unhandled tracebacks.
+- **Prior-year financial suppression**: `get_prior_annual_metrics()` now accepts `is_financial` parameter, threaded from orchestrator. Banks' prior-year metrics correctly suppress inapplicable models.
+- **CI matrix includes Python 3.13**: Test workflow now runs on 3.10, 3.11, 3.12, and 3.13 — matching the setup.py classifier.
+- **requirements.txt aligned with setup.py**: Removed statsmodels from mandatory dependencies (it's an optional `[forecast]` extra).
+
+### Testing
+- Added CLI TickerFetchError catch test.
+- Added CAGR insufficient-data NaN test.
+- Updated negative-equity test (ROE now NaN, consistent with DuPont).
+- Updated prior-year metrics mock to verify is_financial threading.
+- Test count: 344 → 346 (+2 tests).
+
 ## [0.8.1] - 2026-04-17
 
 ### Fixes
