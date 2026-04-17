@@ -12,6 +12,7 @@ from edgar import Company, MultiFinancials
 from .logging_utils import get_logger
 from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
 from .synonyms_utils import find_synonym_value, find_best_synonym_row, compute_capex_for_column
+from .synonyms import SYNONYMS
 from .config import ALERTS_CONFIG
 from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES, QUARTERLY_FORM_TYPES
 
@@ -57,28 +58,70 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
     else:
         logger.warning("%s: No quarterly income statements found (tried %s)", ticker, ", ".join(QUARTERLY_FORM_TYPES))
 
+    annual_bs_df = pd.DataFrame()
+    annual_cf_df = pd.DataFrame()
+    for form_type in ANNUAL_FORM_TYPES:
+        try:
+            filings = comp.get_filings(form=form_type, is_xbrl=True).head(n_years)
+            multi = MultiFinancials(filings)
+            bs = _get_financial_statement(multi, "balance_sheet")
+            cf = _get_financial_statement(multi, "cash_flow_statement")
+            if bs is not None:
+                annual_bs_df = make_numeric_df(ensure_dataframe(bs, f"{ticker}-multi{form_type}-BS"), f"{ticker}-multi{form_type}-BS")
+            if cf is not None:
+                annual_cf_df = make_numeric_df(ensure_dataframe(cf, f"{ticker}-multi{form_type}-CF"), f"{ticker}-multi{form_type}-CF")
+            if not annual_bs_df.empty or not annual_cf_df.empty:
+                break
+        except Exception as e:
+            logger.debug("No multi %s BS/CF for %s: %s", form_type, ticker, e)
+
+    quarterly_bs_df = pd.DataFrame()
+    quarterly_cf_df = pd.DataFrame()
+    for qtr_form in QUARTERLY_FORM_TYPES:
+        try:
+            filings_q = comp.get_filings(form=qtr_form, is_xbrl=True).head(n_quarters)
+            multi_q = MultiFinancials(filings_q)
+            bs_q = _get_financial_statement(multi_q, "balance_sheet")
+            cf_q = _get_financial_statement(multi_q, "cash_flow_statement")
+            if bs_q is not None:
+                quarterly_bs_df = make_numeric_df(ensure_dataframe(bs_q, f"{ticker}-multi{qtr_form}-BS"), f"{ticker}-multi{qtr_form}-BS")
+            if cf_q is not None:
+                quarterly_cf_df = make_numeric_df(ensure_dataframe(cf_q, f"{ticker}-multi{qtr_form}-CF"), f"{ticker}-multi{qtr_form}-CF")
+            if not quarterly_bs_df.empty or not quarterly_cf_df.empty:
+                break
+        except Exception as e:
+            logger.debug("No multi %s BS/CF for %s: %s", qtr_form, ticker, e)
+
     annual_data = extract_period_values(annual_inc_df, f"{ticker}-ANN")
     quarterly_data = extract_period_values(quarterly_inc_df, f"{ticker}-QTR")
+
+    _extract_bs_cf_values(annual_data, annual_bs_df, annual_cf_df, f"{ticker}-ANN")
+    _extract_bs_cf_values(quarterly_data, quarterly_bs_df, quarterly_cf_df, f"{ticker}-QTR")
+
+    _compute_derived_ratios(annual_data)
+    _compute_derived_ratios(quarterly_data)
+    _compute_derived_bs_ratios(annual_data)
+    _compute_derived_bs_ratios(quarterly_data)
 
     yoy_rev = compute_growth_series(annual_data.get("Revenue", {}))
     cagr_rev = compute_cagr(annual_data.get("Revenue", {}))
 
-    # Compute derived margin ratios from extracted values
-    _compute_derived_ratios(annual_data)
-    _compute_derived_ratios(quarterly_data)
+    _ALL_GROWTH_LABELS = (
+        [label for label, _ in _TRACKED_METRICS]
+        + ["Gross Margin %", "Operating Margin %", "Net Margin %"]
+        + list(_BS_CF_METRICS.keys())
+        + ["Free Cash Flow", "CapEx", "ROE %", "ROA %", "Debt-to-Equity"]
+    )
 
     yoy_growth = {"Revenue": yoy_rev}
     cagr = {"Revenue": cagr_rev}
-    for label, _ in _TRACKED_METRICS:
+    for label in _ALL_GROWTH_LABELS:
         if label == "Revenue":
             continue
         series = annual_data.get(label, {})
-        yoy_growth[label] = compute_growth_series(series)
-        cagr[label] = compute_cagr(series)
-    for label in ("Gross Margin %", "Operating Margin %", "Net Margin %"):
-        series = annual_data.get(label, {})
         if series:
             yoy_growth[label] = compute_growth_series(series)
+            cagr[label] = compute_cagr(series)
 
     return {
         "annual_data": annual_data,
@@ -120,6 +163,84 @@ def _compute_derived_ratios(data: dict) -> None:
                 series[period] = (numerator[period] / rev) * 100.0
         if series:
             data[label] = series
+
+
+_BS_CF_METRICS = {
+    "Total Assets": "total_assets",
+    "Total Equity": "total_equity",
+    "Total Liabilities": "total_liabilities",
+    "Current Assets": "current_assets",
+    "Current Liabilities": "current_liabilities",
+    "Short-term Debt": "short_term_debt",
+    "Long-term Debt": "long_term_debt",
+    "Cash from Operations": "cash_flow_operating",
+}
+
+
+def _extract_bs_cf_values(data: dict, bs_df: pd.DataFrame, cf_df: pd.DataFrame, debug_label: str) -> None:
+    """Extract balance sheet and cash flow values into the multi-period data dict."""
+    for label, syn_key in _BS_CF_METRICS.items():
+        source_df = cf_df if syn_key == "cash_flow_operating" else bs_df
+        if source_df.empty:
+            continue
+        source_df.columns = source_df.columns.map(str)
+        sorted_cols = sorted(source_df.columns, key=parse_period_label)
+        row = find_best_synonym_row(source_df, syn_key, value_cols=sorted_cols, debug_label=f"{debug_label}->{label}")
+        if row is None:
+            continue
+        period_vals = {}
+        for c in sorted_cols:
+            val = row.get(c, np.nan)
+            if pd.notna(val):
+                period_vals[c] = float(val)
+        if period_vals:
+            data[label] = period_vals
+
+    if not cf_df.empty:
+        cf_df.columns = cf_df.columns.map(str)
+        sorted_cf_cols = sorted(cf_df.columns, key=parse_period_label)
+        op_values = data.get("Cash from Operations", {})
+        capex_map = {}
+        fcf_map = {}
+        for col in sorted_cf_cols:
+            capex = compute_capex_for_column(cf_df, col, debug_label=f"{debug_label}->CapEx")
+            if capex > 0:
+                capex_map[col] = capex
+            opcf = op_values.get(col)
+            if opcf is not None:
+                fcf_map[col] = opcf - capex
+        if capex_map:
+            data["CapEx"] = capex_map
+        if fcf_map:
+            data["Free Cash Flow"] = fcf_map
+
+
+def _compute_derived_bs_ratios(data: dict) -> None:
+    """Compute ROE%, ROA%, D/E time series from extracted balance sheet + income data."""
+    ni = data.get("Net Income", {})
+    total_assets = data.get("Total Assets", {})
+    total_equity = data.get("Total Equity", {})
+    total_liabs = data.get("Total Liabilities", {})
+
+    roe_series = {}
+    roa_series = {}
+    de_series = {}
+    for period in ni:
+        eq = total_equity.get(period)
+        ta = total_assets.get(period)
+        tl = total_liabs.get(period)
+        if eq and eq != 0:
+            roe_series[period] = (ni[period] / eq) * 100.0
+        if ta and ta != 0:
+            roa_series[period] = (ni[period] / ta) * 100.0
+        if eq and eq > 0 and tl is not None:
+            de_series[period] = tl / eq
+    if roe_series:
+        data["ROE %"] = roe_series
+    if roa_series:
+        data["ROA %"] = roa_series
+    if de_series:
+        data["Debt-to-Equity"] = de_series
 
 
 def extract_period_values(df: pd.DataFrame, debug_label="(unknown)") -> dict:

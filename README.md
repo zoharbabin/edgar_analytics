@@ -6,11 +6,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/zoharbabin/edgar_analytics?style=social)](https://github.com/zoharbabin/edgar_analytics/stargazers)
 
-**Analyze SEC EDGAR filings in seconds.** Retrieve 10-K and 10-Q financial statements, compute 25+ GAAP/IFRS metrics, forecast revenue with ARIMA/SARIMAX, and get actionable alerts — all from a single CLI command or Python import.
+**Analyze SEC EDGAR filings in seconds.** Retrieve 10-K and 10-Q financial statements, compute 40+ GAAP/IFRS metrics and scoring models, forecast revenue with ARIMA/SARIMAX, and get actionable alerts — all from a single CLI command or Python import.
 
 ```bash
 pip install edgar-analytics
 edgar-analytics AAPL MSFT GOOGL --csv report.csv
+```
+
+```python
+import edgar_analytics as ea
+result = ea.analyze("AAPL", peers=["MSFT", "GOOGL"])
+print(result.main.annual_snapshot.metrics.revenue)
+df = result.to_dataframe()  # One row per ticker
 ```
 
 ---
@@ -62,17 +69,35 @@ Supports both U.S. GAAP and IFRS filers. Foreign private issuers that file IFRS-
 
 ## Features
 
+- **Typed Programmatic API**: `ea.analyze("AAPL", peers=["MSFT"])` returns an `AnalysisResult` dataclass with typed fields — no more dict-diving.
 - **Annual & Quarterly Snapshots**: Retrieve the latest 10-K (annual) and 10-Q (quarterly) metrics for a given company.
-- **Multi-Year Analysis**: Pull multiple 10-K and 10-Q statements to compute YoY growth, QoQ growth, and CAGR.
-- **Key Ratios & Metrics**: Current Ratio, Debt-to-Equity, Free Cash Flow, margins, intangible ratios, net debt, lease liabilities, and more.
+- **Multi-Year Analysis**: Pull multiple 10-K and 10-Q statements (income, balance sheet, cash flow) to compute YoY growth, QoQ growth, and CAGR for all metrics including FCF, CapEx, ROE, ROA, and D/E.
+- **40+ Financial Ratios & Metrics**:
+  - Margins: Gross, Operating, Net
+  - Liquidity: Current Ratio, Quick Ratio, Cash Ratio
+  - Leverage: Debt-to-Equity, Debt/Total Capital, Fixed Charge Coverage, Interest Coverage
+  - Quality: Accruals Ratio, Earnings Quality, Cash Flow Coverage, Sloan Accrual
+  - Profitability: ROE, ROA, EBIT, EBITDA (both approximate and standard)
+  - Balance sheet: Intangible ratio, goodwill ratio, net debt, lease liabilities, tangible equity
+- **Scoring Models**: Piotroski F-Score, Altman Z-Score, Beneish M-Score, DuPont Decomposition, Capital Efficiency (ROIC/WACC), Per-Share Metrics, Working Capital Cycle.
+- **TTM (Trailing Twelve Months)**: Automatically computed from quarterly data and included in results.
 - **Alerts**:
   - Negative net margin
   - High leverage (debt-to-equity above threshold)
   - Consecutive quarters of negative free cash flow
   - Significant quarterly spikes in inventory/receivables
+  - Accounting identity mismatch (Assets ≠ Liabilities + Equity)
 - **Revenue Forecasting**:
   - By default, uses an **ARIMA-based** strategy for annual or quarterly data.
   - Easily swap in your **own forecasting logic** by implementing a custom strategy (see [Extensibility](#extensibility)).
+- **Disk Caching**: SQLite-backed caching with TTL support. Past filings cached forever, current filings cached 24h. Install with `pip install edgar-analytics[cache]`.
+- **CompanyFacts Cross-Validation**: Automatic cross-check against SEC XBRL CompanyFacts API. Discrepancies logged as warnings, never modifies parsed values.
+- **Concurrent Peer Fetching**: Peers analyzed in parallel with `ThreadPoolExecutor` and SEC rate-limit compliance (`Semaphore(10)`).
+- **Output Formats**:
+  - `result.to_dataframe()` — One row per ticker, columns for metrics
+  - `result.to_panel()` — MultiIndex DataFrame (ticker × period × metric) for quant research
+  - `result.to_parquet(path)` — Write to Parquet (`pip install edgar-analytics[parquet]`)
+  - CSV export via CLI
 - **Command-Line Interface (CLI)**:
   - Analyze one or more tickers with a single command
   - Rich, colorized console output
@@ -81,7 +106,7 @@ Supports both U.S. GAAP and IFRS filers. Foreign private issuers that file IFRS-
 - **Comprehensive Logging**:
   - Colorized console output with configurable verbosity
   - Structured JSON logs for debugging and analysis
-- **Optional CSV Output**: Save summarized metrics to CSV.
+- **Type-Safe**: PEP 561 `py.typed` marker — full type checking support for downstream consumers.
 
 ---
 
@@ -93,6 +118,12 @@ You can install EDGAR Analytics using `pip` or set it up within a local virtual 
 
 ```bash
 pip install edgar-analytics
+
+# With optional extras:
+pip install edgar-analytics[cache]      # Disk caching (diskcache)
+pip install edgar-analytics[parquet]    # Parquet output (pyarrow)
+pip install edgar-analytics[forecast]   # Revenue forecasting (statsmodels)
+pip install edgar-analytics[cache,parquet,forecast]  # All extras
 ```
 
 ### Setting Up a Local Virtual Environment
@@ -182,66 +213,86 @@ The console output is colorized using [Rich](https://pypi.org/project/rich/), ma
 
 ### Programmatic Usage
 
-You can also **use the library in your own Python scripts**. For example:
+The recommended entry point is `ea.analyze()`, which returns typed dataclasses:
+
+```python
+import edgar_analytics as ea
+
+# Full analysis with peers — returns AnalysisResult dataclass
+result = ea.analyze("AAPL", peers=["MSFT", "GOOGL"])
+
+# Access typed fields directly
+metrics = result.main.annual_snapshot.metrics
+print(f"Revenue: {metrics.revenue:,.0f}")
+print(f"Net Margin: {metrics.net_margin_pct:.1f}%")
+print(f"Piotroski Score: {metrics.scores.piotroski.score}")
+
+# TTM data (trailing twelve months from quarterly)
+print(f"TTM Revenue: {result.main.multiyear.ttm.get('Revenue', 0):,.0f}")
+
+# Multi-period trends (FCF, ROE, D/E over time)
+annual = result.main.multiyear.annual_data
+print(f"ROE % by year: {annual.get('ROE %', {})}")
+print(f"FCF by year: {annual.get('Free Cash Flow', {})}")
+
+# Export to various formats
+df = result.to_dataframe()         # One row per ticker
+panel = result.to_panel()          # MultiIndex: ticker × period × metric
+result.to_parquet("output.parquet")  # Requires: pip install edgar-analytics[parquet]
+```
+
+For CLI-style console output with optional CSV export:
 
 ```python
 from edgar_analytics.orchestrator import TickerOrchestrator
 
-def main():
-    orchestrator = TickerOrchestrator()
-    orchestrator.analyze_company(
-        ticker="AAPL",
-        peers=["MSFT", "GOOGL"],
-        csv_path="analysis_outputs/summary.csv",
-        n_years=5,                # Optional: override default of 3 years
-        n_quarters=8,             # Optional: override default of 10 quarters
-        disable_forecast=False,    # Optional: skip forecasting if True
-        identity="Name <email>"   # Optional: override default SEC identity
-    )
-
-if __name__ == "__main__":
-    main()
+orchestrator = TickerOrchestrator()
+result = orchestrator.analyze_company(
+    ticker="AAPL",
+    peers=["MSFT", "GOOGL"],
+    csv_path="summary.csv",
+    n_years=5,
+    n_quarters=8,
+    identity="Name <email>"
+)
 ```
-
-**Key Steps** (inside `analyze_company`):
-
-1. Validates the ticker symbol (e.g., `AAPL`).
-2. Fetches annual (10-K) and quarterly (10-Q) snapshots.
-3. Retrieves multi-year data, computing YoY, CAGR, etc.
-4. **Forecasts annual & quarterly revenue** using the **default ARIMA strategy** (or a custom strategy if configured).
-5. Summarizes everything in rich console output and optional CSV.
-
-> Check out the example scripts in [examples](examples) to learn more.  
 
 ---
 
 ## Core Modules
 
-1. **`metrics.py`**  
-   Computes financial metrics (Revenue, Net Income, margins, ROE, Free Cash Flow, IFRS expansions, interest coverage, etc.).
+1. **`models.py`**  
+   Typed dataclass models: `AnalysisResult`, `TickerAnalysis`, `FilingSnapshot`, `SnapshotMetrics`, `ScoresResult`, etc.
 
-2. **`forecasting.py`**  
-   Provides a **strategy-based** system for revenue forecasting.  
-   - **`ArimaForecastStrategy`**: Uses ARIMA or SARIMAX if enough data is available.  
-   - **`forecast_revenue()`**: A convenience function that calls the chosen strategy.
+2. **`metrics.py`**  
+   Computes 40+ financial metrics (Revenue, margins, ROE/ROA, liquidity, leverage, quality factors, EBIT/EBITDA, interest coverage, etc.).
 
-3. **`multi_period_analysis.py`**  
-   Gathers multi-year or multi-quarter data, computing growth rates (YoY, QoQ) and CAGR.
+3. **`scores.py`**  
+   Scoring models: Piotroski F-Score, Altman Z-Score, Beneish M-Score, DuPont Decomposition, Capital Efficiency (ROIC), Per-Share Metrics, Working Capital Cycle, TTM computation.
 
-4. **`orchestrator.py`**  
-   High-level orchestration (`TickerOrchestrator`) to fetch EDGAR data, compute metrics, run multi-year analysis, forecast, and produce final outputs.
+4. **`forecasting.py`**  
+   Strategy-based revenue forecasting. Default: `ArimaForecastStrategy` (ARIMA/SARIMAX).
 
-5. **`reporting.py`**  
-   Summarizes results in a DataFrame, renders rich console output, and optionally saves to CSV.
+5. **`multi_period_analysis.py`**  
+   Multi-year/quarter data retrieval across income, balance sheet, and cash flow statements. Computes YoY growth, CAGR, FCF/CapEx/ROE/ROA/D/E time series, and derived margin ratios.
 
-6. **`logging_utils.py`**
-   Configures dual logging system with rich console output and structured JSON logs.
+6. **`orchestrator.py`**  
+   High-level orchestration with disk caching, concurrent peer fetching, CompanyFacts cross-validation, and TTM integration.
 
-7. **`data_utils.py`, `synonyms_utils.py`, `synonyms.py`, `config.py`**  
-   - Helpers for data parsing, synonyms, numeric formatting, and config thresholds.
+7. **`cache.py`**  
+   SQLite-backed disk caching with TTL support (requires `diskcache`). Transparent no-op when not installed.
 
-8. **`cli.py`**  
-   Click-based command-line interface with rich output formatting.
+8. **`company_facts.py`**  
+   SEC XBRL CompanyFacts API cross-validation. Logs discrepancies, never modifies parsed values.
+
+9. **`reporting.py`**  
+   Rich console output, CSV export, multi-year trend display with TTM.
+
+10. **`cli.py`**  
+    Click-based CLI with rich output formatting.
+
+11. **`logging_utils.py`, `data_utils.py`, `synonyms_utils.py`, `synonyms.py`, `config.py`**  
+    Logging, data parsing, synonyms, numeric formatting, and config thresholds.
 
 ---
 

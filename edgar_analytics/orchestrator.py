@@ -33,6 +33,8 @@ from .multi_period_analysis import (
     check_additional_alerts_quarterly,
 )
 from .market_data import get_market_cap
+from .cache import CacheLayer
+from .company_facts import CompanyFactsClient
 
 logger = get_logger(__name__)
 
@@ -72,9 +74,11 @@ class TickerOrchestrator:
 
     _SEC_SEMAPHORE = threading.Semaphore(10)
 
-    def __init__(self) -> None:
+    def __init__(self, cache_dir: Optional[str] = None, enable_cache: bool = True) -> None:
         self.logger = logger
         self.reporting_engine = ReportingEngine()
+        self._cache = CacheLayer(directory=cache_dir or ".edgar_cache", enabled=enable_cache)
+        self._facts_client = CompanyFactsClient()
 
     def analyze(
         self,
@@ -212,8 +216,10 @@ class TickerOrchestrator:
             self.logger.exception("Failed to create Company object for %s: %s", ticker, exc)
             return {}
 
-        annual_snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
-        quarterly_snap = get_filing_snapshot_with_fallback(comp, QUARTERLY_FORM_TYPES)
+        annual_snap = self._cached_snapshot(comp, ticker, ANNUAL_FORM_TYPES, is_current=False)
+        quarterly_snap = self._cached_snapshot(comp, ticker, QUARTERLY_FORM_TYPES, is_current=True)
+
+        self._cross_validate(ticker, annual_snap)
 
         multi_data = retrieve_multi_year_data(ticker, n_years=n_years, n_quarters=n_quarters)
         rev_annual = multi_data.get("annual_data", {}).get("Revenue", {})
@@ -247,6 +253,40 @@ class TickerOrchestrator:
             "extra_alerts": extra_alerts,
             "market_cap": market_cap,
         }
+
+    def _cached_snapshot(
+        self, comp: Company, ticker: str, form_types: tuple, is_current: bool,
+    ) -> dict:
+        """Fetch a filing snapshot, using cache when available."""
+        cache_ns = "snapshot"
+        form_label = "quarterly" if is_current else "annual"
+        cached = self._cache.get(cache_ns, ticker, form_label)
+        if cached is not None:
+            self.logger.debug("Cache hit for %s %s snapshot", ticker, form_label)
+            return cached
+
+        snap = get_filing_snapshot_with_fallback(comp, form_types)
+
+        if snap.get("metrics"):
+            accession = snap.get("filing_info", {}).get("accession_no", "")
+            if is_current:
+                self._cache.set_current(snap, cache_ns, ticker, form_label)
+            else:
+                self._cache.set_immutable(snap, cache_ns, ticker, form_label)
+            self.logger.debug("Cached %s %s snapshot (accession=%s)", ticker, form_label, accession)
+
+        return snap
+
+    def _cross_validate(self, ticker: str, annual_snap: dict) -> None:
+        """Run CompanyFacts cross-validation on annual metrics."""
+        metrics = annual_snap.get("metrics")
+        if not metrics:
+            return
+        try:
+            facts = self._facts_client.fetch(ticker)
+            self._facts_client.validate_metrics(facts, metrics, ticker=ticker)
+        except Exception as exc:
+            self.logger.debug("CompanyFacts validation skipped for %s: %s", ticker, exc)
 
     def _enhance_scores_with_prior_year(
         self,

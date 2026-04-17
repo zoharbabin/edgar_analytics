@@ -157,6 +157,39 @@ class TestAmendedFiling:
         assert "20-F/A" in ANNUAL_FORM_TYPES
         assert "10-Q/A" in QUARTERLY_FORM_TYPES
 
+    def test_real_amended_filing_fetch(self):
+        """Fetch a company known to have filed 10-K/A and verify data is returned."""
+        comp = Company("AAPL")
+        filings = comp.get_filings(form="10-K/A", is_xbrl=True)
+        if filings is None or len(filings) == 0:
+            pytest.skip("No 10-K/A filings available for AAPL")
+        snap = get_single_filing_snapshot(comp, "10-K/A")
+        m = snap.get("metrics", {})
+        if not m:
+            pytest.skip("10-K/A filing has no parseable metrics")
+        assert snap["filing_info"]["form_type"] == "10-K/A"
+        assert isinstance(m.get("Alerts"), list)
+
+
+class TestSmallCapFiler:
+    """Test a small-cap company with potentially sparse data."""
+
+    def test_small_cap_snapshot(self):
+        """Small-cap filer should return metrics without crashing on missing line items."""
+        comp = Company("SIRI")
+        snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        m = snap.get("metrics", {})
+        if not m:
+            pytest.skip("SIRI filing not available")
+        assert isinstance(m.get("Alerts"), list)
+        assert m.get("Revenue", 0) >= 0
+
+    def test_small_cap_multi_year(self):
+        """Multi-year retrieval on small-cap should not crash even with sparse data."""
+        data = retrieve_multi_year_data("SIRI", n_years=2, n_quarters=4)
+        assert "annual_data" in data
+        assert "quarterly_data" in data
+
 
 class TestMetricsConsistency:
     """Sanity checks on metric relationships."""

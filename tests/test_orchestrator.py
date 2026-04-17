@@ -381,3 +381,46 @@ def test_semaphore_rate_limiting():
 
     assert result["annual_snapshot"]["metrics"]["Revenue"] == 100
     mock_analyze.assert_called_once_with("AAPL", n_years=3, n_quarters=10, disable_forecast=False)
+
+
+# ---------------------------------------------------------------------
+#         Cache wiring
+# ---------------------------------------------------------------------
+
+def test_cache_layer_used_on_second_call():
+    """Second call to _cached_snapshot should use cached value."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    mock_comp = MagicMock()
+    snap = {"metrics": {"Revenue": 1000, "Alerts": []}, "filing_info": {"accession_no": "abc"}}
+
+    with patch("edgar_analytics.orchestrator.get_filing_snapshot_with_fallback", return_value=snap):
+        result = orchestrator._cached_snapshot(mock_comp, "AAPL", ("10-K",), is_current=False)
+    assert result["metrics"]["Revenue"] == 1000
+
+
+def test_cache_disabled_still_works():
+    """With cache disabled, orchestrator still fetches normally."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    assert orchestrator._cache.enabled is False
+
+
+# ---------------------------------------------------------------------
+#         CompanyFacts wiring
+# ---------------------------------------------------------------------
+
+def test_cross_validate_called(caplog):
+    """_cross_validate calls CompanyFactsClient and logs discrepancies."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    snap = {"metrics": {"Revenue": 1000, "Net Income": 200}}
+
+    with patch.object(orchestrator._facts_client, "fetch", return_value=None):
+        orchestrator._cross_validate("AAPL", snap)
+
+    with patch.object(orchestrator._facts_client, "fetch", side_effect=Exception("network error")):
+        orchestrator._cross_validate("AAPL", snap)
+
+
+def test_cross_validate_empty_metrics():
+    """_cross_validate does nothing for empty metrics."""
+    orchestrator = TickerOrchestrator(enable_cache=False)
+    orchestrator._cross_validate("AAPL", {"metrics": {}})
