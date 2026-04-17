@@ -35,6 +35,7 @@ setuptools.setup(
             "pytest",
             "pytz",
             "pytest-xdist",
+            "pytest-timeout",
             "statsmodels>=0.13,<1",
         ],
     },
