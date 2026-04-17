@@ -40,7 +40,7 @@ from .multi_period_analysis import (
     analyze_quarterly_balance_sheets,
     check_additional_alerts_quarterly,
 )
-from .market_data import get_market_cap
+from .market_data import get_market_cap, get_share_price, compute_valuation_ratios
 from .cache import CacheLayer
 from .company_facts import CompanyFactsClient
 
@@ -151,8 +151,8 @@ class TickerOrchestrator:
                     try:
                         peer_data = future.result()
                         result.tickers[peer] = TickerAnalysis.from_dict(peer, peer_data)
-                    except Exception as exc:
-                        self.logger.error("Peer %s failed: %s", peer, exc)
+                    except (TickerFetchError, OSError, ValueError, KeyError) as exc:
+                        self.logger.error("Peer %s failed: %s", peer, exc, exc_info=True)
 
         self.logger.info("Analysis complete.")
         return result
@@ -209,7 +209,9 @@ class TickerOrchestrator:
                 "No --identity provided. SEC EDGAR requires a valid identity "
                 "(e.g. 'Name <email>'). Set via --identity or EDGAR_IDENTITY env var."
             )
-            env_identity = os.environ.get("EDGAR_IDENTITY", "edgar-analytics <edgar-analytics@users.noreply.github.com>")
+            from edgar_analytics import __version__
+            default = f"edgar-analytics/{__version__} <edgar-analytics@users.noreply.github.com>"
+            env_identity = os.environ.get("EDGAR_IDENTITY", default)
             set_identity(env_identity)
 
     def _analyze_ticker_for_metrics(
@@ -229,13 +231,16 @@ class TickerOrchestrator:
         except (ValueError, KeyError, OSError) as exc:
             raise TickerFetchError(f"Cannot resolve ticker {ticker!r}: {exc}") from exc
 
+        sic = getattr(comp, "sic", None)
+        is_financial = isinstance(sic, int) and 6000 <= sic <= 6999
+
         annual_snap = self._cached_snapshot(
             comp, ticker, ANNUAL_FORM_TYPES, is_current=False,
-            alerts_config=self._alerts_config,
+            alerts_config=self._alerts_config, is_financial=is_financial,
         )
         quarterly_snap = self._cached_snapshot(
             comp, ticker, QUARTERLY_FORM_TYPES, is_current=True,
-            alerts_config=self._alerts_config,
+            alerts_config=self._alerts_config, is_financial=is_financial,
         )
 
         self._cross_validate(ticker, annual_snap)
@@ -256,6 +261,11 @@ class TickerOrchestrator:
         extra_alerts = check_additional_alerts_quarterly(quarterly_info)
 
         market_cap = get_market_cap(ticker)
+        share_price = get_share_price(ticker)
+
+        if annual_snap.get("metrics"):
+            valuation = compute_valuation_ratios(market_cap, share_price, annual_snap["metrics"])
+            annual_snap["metrics"]["_valuation"] = valuation
 
         self._enhance_scores_with_prior_year(
             comp, annual_snap, market_cap,
@@ -276,6 +286,7 @@ class TickerOrchestrator:
     def _cached_snapshot(
         self, comp: Company, ticker: str, form_types: tuple, is_current: bool,
         alerts_config: Optional[Dict[str, Any]] = None,
+        is_financial: bool = False,
     ) -> dict:
         """Fetch a filing snapshot, using cache when available."""
         cache_ns = "snapshot"
@@ -285,7 +296,9 @@ class TickerOrchestrator:
             self.logger.debug("Cache hit for %s %s snapshot", ticker, form_label)
             return cached
 
-        snap = get_filing_snapshot_with_fallback(comp, form_types, alerts_config=alerts_config)
+        snap = get_filing_snapshot_with_fallback(
+            comp, form_types, alerts_config=alerts_config, is_financial=is_financial,
+        )
 
         if snap.get("metrics"):
             accession = snap.get("filing_info", {}).get("accession_no", "")
@@ -335,7 +348,7 @@ class TickerOrchestrator:
             existing_scores["altman"] = enhanced["altman"]
 
         # Piotroski and Beneish require prior-period data.
-        prior_metrics = get_prior_annual_metrics(comp)
+        prior_metrics = get_prior_annual_metrics(comp, alerts_config=self._alerts_config)
         if prior_metrics:
             enhanced_yoy = compute_all_scores(
                 metrics=current_metrics,

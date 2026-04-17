@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         AltmanZScore,
         BeneishMScore,
     )
+    from .market_data import ValuationRatios
 
 _NAN = float("nan")
 
@@ -212,6 +213,8 @@ class SnapshotMetrics:
     alerts: Tuple[str, ...] = ()
     identity_check: str = ""
     scores: Optional[ScoresResult] = None
+    is_financial: bool = False
+    valuation: Optional[ValuationRatios] = None
 
     @classmethod
     def from_dict(cls, d: dict) -> SnapshotMetrics:
@@ -222,6 +225,14 @@ class SnapshotMetrics:
         raw_alerts = d.get("Alerts", [])
         kwargs["alerts"] = tuple(raw_alerts) if isinstance(raw_alerts, list) else raw_alerts
         kwargs["identity_check"] = d.get("_IdentityCheck", "")
+        kwargs["is_financial"] = d.get("_is_financial", False)
+        raw_val = d.get("_valuation")
+        if raw_val is not None:
+            from .market_data import ValuationRatios
+            if isinstance(raw_val, ValuationRatios):
+                kwargs["valuation"] = raw_val
+            elif isinstance(raw_val, dict):
+                kwargs["valuation"] = _reconstruct_dataclass(ValuationRatios, raw_val)
         raw_scores = d.get("_scores")
         if isinstance(raw_scores, ScoresResult):
             kwargs["scores"] = raw_scores
@@ -235,6 +246,10 @@ class SnapshotMetrics:
             result[dict_key] = getattr(self, field_name)
         result["Alerts"] = list(self.alerts)
         result["_IdentityCheck"] = self.identity_check
+        result["_is_financial"] = self.is_financial
+        if self.valuation is not None:
+            from dataclasses import asdict
+            result["_valuation"] = asdict(self.valuation)
         if self.scores is not None:
             result["_scores"] = self.scores.to_dict() if isinstance(self.scores, ScoresResult) else self.scores
         return result
@@ -396,16 +411,21 @@ class AnalysisResult:
             rows[ticker] = d
         return pd.DataFrame(rows).T
 
-    def to_panel(self) -> "pd.DataFrame":
-        """MultiIndex DataFrame (ticker × period × metric) from multi-year data.
+    def to_panel(self, frequency: str = "annual") -> "pd.DataFrame":
+        """MultiIndex DataFrame (ticker x period x metric) from multi-year data.
 
         Standard format for factor research and quant screens.
+
+        :param frequency: ``"annual"`` (default) or ``"quarterly"``.
         """
         import pandas as pd
 
         records = []
         for ticker, ta in self.tickers.items():
-            for metric, periods in ta.multiyear.annual_data.items():
+            source = (ta.multiyear.quarterly_data
+                      if frequency == "quarterly"
+                      else ta.multiyear.annual_data)
+            for metric, periods in source.items():
                 for period, value in periods.items():
                     records.append({
                         "ticker": ticker, "period": period,
@@ -420,11 +440,51 @@ class AnalysisResult:
         )
 
     def to_parquet(self, path: str) -> None:
-        """Write the snapshot DataFrame to Parquet format.
+        """Write analysis data to Parquet files.
+
+        Writes up to three files:
+
+        - *path* — snapshot metrics (one row per ticker)
+        - *path* with ``_panel`` suffix — annual panel data
+        - *path* with ``_scores`` suffix — per-ticker scores
 
         Requires ``pyarrow``::
 
             pip install edgar-analytics[parquet]
         """
-        df = self.to_dataframe()
-        df.to_parquet(Path(path))
+        import pandas as pd
+
+        base = Path(path)
+        stem = base.stem
+        parent = base.parent
+
+        self.to_dataframe().to_parquet(base)
+
+        panel = self.to_panel()
+        if not panel.empty:
+            panel.to_parquet(parent / f"{stem}_panel.parquet")
+
+        score_rows: Dict[str, dict] = {}
+        for ticker, ta in self.tickers.items():
+            scores = ta.annual_snapshot.metrics.scores
+            if scores is None:
+                continue
+            row: dict = {}
+            if scores.altman is not None:
+                row["altman_z"] = scores.altman.z_score
+                row["altman_zone"] = scores.altman.zone
+                row["altman_model"] = scores.altman.model
+            if scores.piotroski is not None:
+                row["piotroski_score"] = scores.piotroski.score
+            if scores.beneish is not None:
+                row["beneish_m"] = scores.beneish.m_score
+                row["beneish_manipulator"] = scores.beneish.likely_manipulator
+            if scores.dupont is not None:
+                row["dupont_roe_3"] = scores.dupont.roe_3
+                row["dupont_roe_5"] = scores.dupont.roe_5
+            if scores.capital_efficiency is not None:
+                row["roic_pct"] = scores.capital_efficiency.roic_pct
+            if row:
+                score_rows[ticker] = row
+        if score_rows:
+            pd.DataFrame(score_rows).T.to_parquet(parent / f"{stem}_scores.parquet")

@@ -17,7 +17,7 @@ Quick start (programmatic)::
     print(result["MSFT"].annual_snapshot.metrics.net_margin_pct)
 """
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 from .models import (
     AnalysisResult,
@@ -40,6 +40,7 @@ from .scores import (
     BeneishMScore,
 )
 from .forecasting import ForecastStrategy, ArimaForecastStrategy
+from .market_data import ValuationRatios
 
 
 def analyze(
@@ -111,4 +112,6 @@ __all__ = [
     # Forecasting (strategy extensibility)
     "ForecastStrategy",
     "ArimaForecastStrategy",
+    # Valuation
+    "ValuationRatios",
 ]

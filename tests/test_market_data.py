@@ -1,9 +1,10 @@
 """tests/test_market_data.py — tests for market data module."""
 
 import math
+import pytest
 from unittest.mock import patch, MagicMock
 
-from edgar_analytics.market_data import get_market_cap, get_share_price
+from edgar_analytics.market_data import get_market_cap, get_share_price, compute_valuation_ratios, ValuationRatios
 
 
 class TestGetMarketCap:
@@ -61,3 +62,48 @@ class TestGetSharePrice:
             mock_yf.Ticker.return_value = mock_ticker
             result = get_share_price("AAPL")
             assert result == 174.00
+
+
+class TestValuationRatios:
+    def _metrics(self, **overrides):
+        m = {
+            "Net Income": 100_000,
+            "EBITDA (standard)": 150_000,
+            "_total_equity": 500_000,
+            "_short_term_debt": 50_000,
+            "_long_term_debt": 200_000,
+            "_cash_equivalents": 100_000,
+        }
+        m.update(overrides)
+        return m
+
+    def test_pe_ratio(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
+        assert v.pe_ratio == pytest.approx(10.0)
+
+    def test_pb_ratio(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
+        assert v.pb_ratio == pytest.approx(2.0)
+
+    def test_ev_ebitda(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
+        ev = 1_000_000 + 50_000 + 200_000 - 100_000
+        assert v.ev_ebitda == pytest.approx(ev / 150_000)
+
+    def test_earnings_yield(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics())
+        assert v.earnings_yield == pytest.approx(0.1)
+
+    def test_nan_when_no_market_cap(self):
+        v = compute_valuation_ratios(float("nan"), float("nan"), self._metrics())
+        assert math.isnan(v.pe_ratio)
+        assert math.isnan(v.pb_ratio)
+        assert math.isnan(v.ev_ebitda)
+
+    def test_nan_pe_when_negative_income(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics(**{"Net Income": -50_000}))
+        assert math.isnan(v.pe_ratio)
+
+    def test_nan_pb_when_negative_equity(self):
+        v = compute_valuation_ratios(1_000_000, 175.0, self._metrics(**{"_total_equity": -100_000}))
+        assert math.isnan(v.pb_ratio)

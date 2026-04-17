@@ -107,7 +107,12 @@ _STOCK_METRICS = frozenset({
     "Total Assets", "Total Equity", "Total Liabilities",
     "Current Assets", "Current Liabilities",
     "Short-term Debt", "Long-term Debt",
-    "Debt-to-Equity", "ROE %", "ROA %",
+})
+
+_RATIO_METRICS = frozenset({
+    "Gross Margin %", "Operating Margin %", "Net Margin %",
+    "ROE %", "ROA %", "Debt-to-Equity",
+    "Current Ratio", "Quick Ratio", "Equity Ratio %",
 })
 
 
@@ -130,7 +135,7 @@ def compute_ttm(quarterly_data: Dict[str, Dict[str, float]]) -> Dict[str, float]
     for metric, periods in quarterly_data.items():
         sorted_periods = sorted(periods.keys(), key=parse_period_label, reverse=True)
 
-        if metric in _STOCK_METRICS:
+        if metric in _STOCK_METRICS or metric in _RATIO_METRICS:
             if sorted_periods:
                 ttm[metric] = periods[sorted_periods[0]]
         else:
@@ -336,6 +341,23 @@ class AltmanZScore:
         book_value_equity: float = _NAN,
         is_manufacturing: Optional[bool] = None,
     ) -> AltmanZScore:
+        """Compute Altman Z-Score with automatic model selection.
+
+        Three models are available:
+        - **Z (manufacturing)**: original 5-factor model (1.2/1.4/3.3/0.6/1.0)
+          for asset-heavy companies with meaningful inventory and COGS.
+        - **Z'' (non-manufacturing)**: 4-factor model (6.56/3.26/6.72/1.05)
+          using book-value equity instead of market cap. Appropriate for
+          service companies, tech, and financials-adjacent firms.
+        - **Z' (partial)**: pragmatic 4-factor fallback using classic Z weights
+          when only market cap (not book value equity) is available. Not a
+          standard published variant — treat with caution.
+
+        Model auto-detection uses ``revenue / total_assets > 0.5`` as a proxy
+        for asset-intensive (manufacturing) companies. Override with the
+        *is_manufacturing* parameter when the heuristic is wrong (e.g. asset-
+        light manufacturers, capital-heavy service firms).
+        """
         if total_assets <= 0:
             return cls()
 
@@ -497,6 +519,7 @@ def compute_all_scores(
     cash_df: pd.DataFrame,
     market_cap: float = _NAN,
     prior_metrics: Optional[dict] = None,
+    is_financial: bool = False,
 ) -> dict:
     """Compute all scoring models from a metrics dict and raw DataFrames.
 
@@ -542,9 +565,6 @@ def compute_all_scores(
     per_share = PerShareMetrics.compute(
         income_df, balance_df, net_income, total_equity, free_cf,
     )
-    working_capital = WorkingCapitalCycle.compute(
-        revenue, cost_rev, receivables, inventory, accounts_payable,
-    )
     capital_eff = CapitalEfficiency.compute(
         operating_income, income_tax, income_before_taxes,
         revenue, total_assets, total_equity, short_debt, long_debt, cash_equiv,
@@ -556,23 +576,32 @@ def compute_all_scores(
 
     result: dict = {
         "per_share": per_share,
-        "working_capital": working_capital,
         "capital_efficiency": capital_eff,
         "dupont": dupont,
     }
 
+    if is_financial:
+        result["working_capital"] = WorkingCapitalCycle()
+    else:
+        result["working_capital"] = WorkingCapitalCycle.compute(
+            revenue, cost_rev, receivables, inventory, accounts_payable,
+        )
+
     # --- Altman Z-Score: single-period model, no prior data needed ---
-    working_capital_val = curr_assets - curr_liabs
-    result["altman"] = AltmanZScore.compute(
-        working_capital=working_capital_val,
-        retained_earnings=retained,
-        ebit=ebit_std,
-        market_cap=market_cap,
-        total_liabilities=total_liabs,
-        revenue=revenue,
-        total_assets=total_assets,
-        book_value_equity=total_equity,
-    )
+    if is_financial:
+        result["altman"] = AltmanZScore()
+    else:
+        working_capital_val = curr_assets - curr_liabs
+        result["altman"] = AltmanZScore.compute(
+            working_capital=working_capital_val,
+            retained_earnings=retained,
+            ebit=ebit_std,
+            market_cap=market_cap,
+            total_liabilities=total_liabs,
+            revenue=revenue,
+            total_assets=total_assets,
+            book_value_equity=total_equity,
+        )
 
     # --- Scores that require prior-period data ---
     if prior_metrics:

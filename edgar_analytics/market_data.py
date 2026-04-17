@@ -9,6 +9,9 @@ When yfinance is unavailable, all functions return NaN gracefully.
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
+
 import pandas as pd
 
 from .logging_utils import get_logger
@@ -58,3 +61,56 @@ def get_share_price(ticker: str) -> float:
         logger.warning("Failed to fetch price for %s: %s", ticker, exc)
 
     return float("nan")
+
+
+_NAN = float("nan")
+
+
+@dataclass
+class ValuationRatios:
+    """Market-derived valuation multiples."""
+
+    pe_ratio: float = _NAN
+    pb_ratio: float = _NAN
+    ev_ebitda: float = _NAN
+    earnings_yield: float = _NAN
+
+
+def compute_valuation_ratios(
+    market_cap: float, share_price: float, metrics: dict,
+) -> ValuationRatios:
+    """Compute P/E, P/B, EV/EBITDA, and earnings yield.
+
+    All inputs come from the caller — no network calls are made here.
+    Returns NaN for anything that cannot be computed.
+    """
+    net_income = metrics.get("Net Income", 0.0)
+    total_equity = metrics.get("_total_equity", 0.0)
+    ebitda = metrics.get("EBITDA (standard)", _NAN)
+    short_debt = metrics.get("_short_term_debt", 0.0)
+    long_debt = metrics.get("_long_term_debt", 0.0)
+    cash = metrics.get("_cash_equivalents", 0.0)
+
+    pe = (market_cap / net_income) if (
+        not math.isnan(market_cap) and net_income > 0
+    ) else _NAN
+
+    pb = (market_cap / total_equity) if (
+        not math.isnan(market_cap) and total_equity > 0
+    ) else _NAN
+
+    ev = _NAN
+    if not math.isnan(market_cap):
+        ev = market_cap + short_debt + long_debt - cash
+    ev_ebitda = (ev / ebitda) if (
+        not math.isnan(ev) and not math.isnan(ebitda) and ebitda > 0
+    ) else _NAN
+
+    earnings_yield = (1.0 / pe) if (
+        not math.isnan(pe) and pe != 0
+    ) else _NAN
+
+    return ValuationRatios(
+        pe_ratio=pe, pb_ratio=pb, ev_ebitda=ev_ebitda,
+        earnings_yield=earnings_yield,
+    )

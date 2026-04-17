@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.8.0] - 2026-04-17
+
+### Financial Intelligence
+- **Financial company detection**: Auto-detects banks/insurers via SIC code (6000-6999) from the SEC Company object. Suppresses inapplicable models (Altman Z-Score, working capital cycle DSO/DIO/DPO) that produce garbage for financial institutions. Adds `is_financial` flag to `SnapshotMetrics`.
+- **Valuation ratios**: New `ValuationRatios` dataclass with P/E, P/B, EV/EBITDA, and Earnings Yield. Computed from yfinance market data + filing metrics. Guards behind `HAS_YFINANCE`.
+- **TTM ratio fix**: Percentage metrics (Gross Margin %, Operating Margin %, Net Margin %, ROE %, ROA %, etc.) now use the latest quarter's value instead of incorrectly summing 4 quarters.
+
+### Engineering
+- **alerts_config fully wired**: The `alerts_config` parameter now flows end-to-end from `analyze()` through `get_prior_annual_metrics()` to `compute_ratios_and_metrics()`. Previously accepted but silently ignored.
+- **Peer exception narrowing**: Peer analysis futures loop now catches `(TickerFetchError, OSError, ValueError, KeyError)` instead of bare `Exception`, with `exc_info=True` for debuggable tracebacks.
+- **RawMetrics TypedDict**: Internal metrics dict schema enforced via `TypedDict` — typos in underscore-prefixed keys (`_total_assets`, `_sga`, etc.) are now caught by type checkers.
+- **Version in SEC user-agent**: Default identity string now includes `edgar-analytics/{version}` so SEC can identify library version in request logs.
+
+### Data Export
+- **to_parquet() multi-file**: Writes three Parquet files — snapshot metrics, annual panel data, and per-ticker scores — instead of just the flat snapshot.
+- **to_panel(frequency=)**: New `frequency` parameter (`"annual"` or `"quarterly"`) for panel data export. Default `"annual"` preserves backward compatibility.
+
+### Altman Z-Score
+- **Docstring**: Added comprehensive docstring documenting the three model variants (Z, Z'', Z'), the auto-detection heuristic (revenue/total_assets > 0.5), and the `is_manufacturing` override.
+
+### Testing
+- Added alerts_config end-to-end test (verifies HIGH_LEVERAGE override actually suppresses alert)
+- Added financial company detection tests (SIC 6020 bank vs SIC 3571 hardware)
+- Added valuation ratio tests (P/E, P/B, EV/EBITDA, edge cases)
+- Added TTM ratio metric tests (Gross Margin % not summed)
+- Added to_panel quarterly frequency test
+- Added to_parquet multi-file tests (panel + scores files)
+- Added SnapshotMetrics is_financial and valuation round-trip tests
+- Added version-in-identity test
+- Added synonym coverage integration test (AAPL CompanyFacts vs synonym lists)
+- Test count: 317 -> 343 (+26 tests).
+
 ## [0.7.0] - 2026-04-17
 
 ### Critical Fixes

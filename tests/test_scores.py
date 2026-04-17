@@ -267,6 +267,20 @@ class TestComputeTTM:
         ttm = compute_ttm(data)
         assert ttm["Revenue"] == pytest.approx(500)  # 110+120+130+140
 
+    def test_ratio_metric_uses_latest(self):
+        data = {
+            "Gross Margin %": {"Q1-2024": 25.0, "Q2-2024": 26.0, "Q3-2024": 27.0, "Q4-2024": 28.0},
+        }
+        ttm = compute_ttm(data)
+        assert ttm["Gross Margin %"] == pytest.approx(28.0)
+
+    def test_operating_margin_not_summed(self):
+        data = {
+            "Operating Margin %": {"Q1-2024": 10.0, "Q2-2024": 11.0, "Q3-2024": 12.0, "Q4-2024": 13.0},
+        }
+        ttm = compute_ttm(data)
+        assert ttm["Operating Margin %"] == pytest.approx(13.0)
+
     def test_insufficient_data(self):
         data = {"Revenue": {"Q1-2023": 100, "Q2-2023": 110}}
         ttm = compute_ttm(data)
@@ -392,3 +406,54 @@ class TestDQCChecks:
         df = pd.DataFrame({"Value": [-3000]}, index=["Total shareholders' equity"])
         warnings = run_dqc_checks(df)
         assert len(warnings) == 0
+
+
+class TestFinancialCompanySuppression:
+    """is_financial=True suppresses inapplicable scores."""
+
+    def _make_metrics(self):
+        return {
+            "Revenue": 50_000, "Net Income": 5_000, "CostOfRev": 0,
+            "Free Cash Flow": 3_000, "Cash from Operations": 7_000,
+            "Operating Income": 8_000, "Income Tax Expense": 2_000,
+            "EBIT (standard)": 8_000, "Gross Margin %": 100.0,
+            "_total_assets": 500_000, "_total_liabilities": 450_000,
+            "_total_equity": 50_000, "_current_assets": 200_000,
+            "_current_liabilities": 180_000, "_short_term_debt": 10_000,
+            "_long_term_debt": 100_000, "_cash_equivalents": 50_000,
+            "_accounts_receivable": 20_000, "_inventory": 0,
+            "_accounts_payable": 15_000, "_retained_earnings": 30_000,
+            "_ppe_net": 5_000, "_shares_outstanding": 1_000,
+            "_dep_amort": 500, "_sga": 3_000,
+            "_short_term_investments": 0, "_income_before_taxes": 7_000,
+        }
+
+    def test_working_capital_suppressed(self):
+        scores = compute_all_scores(
+            self._make_metrics(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+            is_financial=True,
+        )
+        assert math.isnan(scores["working_capital"].dso)
+        assert math.isnan(scores["working_capital"].cash_conversion_cycle)
+
+    def test_altman_suppressed(self):
+        scores = compute_all_scores(
+            self._make_metrics(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+            market_cap=1_000_000, is_financial=True,
+        )
+        assert math.isnan(scores["altman"].z_score)
+
+    def test_dupont_still_computed(self):
+        scores = compute_all_scores(
+            self._make_metrics(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+            is_financial=True,
+        )
+        assert not math.isnan(scores["dupont"].roe_3)
+
+    def test_non_financial_computes_normally(self):
+        scores = compute_all_scores(
+            self._make_metrics(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+            market_cap=1_000_000, is_financial=False,
+        )
+        assert not math.isnan(scores["altman"].z_score)
+        assert not math.isnan(scores["working_capital"].dso)

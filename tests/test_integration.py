@@ -212,3 +212,34 @@ class TestMetricsConsistency:
         opcf = m.get("Cash from Operations", 0)
         fcf = m.get("Free Cash Flow", 0)
         assert fcf <= opcf, "FCF should not exceed operating cash flow"
+
+
+class TestSynonymCoverage:
+    """Verify synonym lists contain matches for real XBRL concepts."""
+
+    def test_aapl_xbrl_concepts_covered(self):
+        from edgar_analytics.synonyms import SYNONYMS
+        from edgar_analytics.company_facts import CompanyFactsClient
+
+        client = CompanyFactsClient()
+        facts = client.fetch("AAPL")
+        if facts is None:
+            pytest.skip("CompanyFacts API unavailable")
+
+        gaap = facts.get("facts", {}).get("us-gaap", {})
+        if not gaap:
+            pytest.skip("No us-gaap facts returned")
+        gaap_concepts = set(gaap.keys())
+
+        def strip_prefix(tag):
+            for pfx in ("us-gaap:", "us-gaap_"):
+                if tag.startswith(pfx):
+                    return tag[len(pfx):]
+            return tag
+
+        for key in ("revenue", "net_income", "total_assets", "cash_equivalents"):
+            tags = {strip_prefix(t) for t in SYNONYMS[key]}
+            assert tags & gaap_concepts, (
+                f"No synonym for '{key}' matches AAPL XBRL concepts. "
+                f"Checked: {sorted(tags)[:5]}..."
+            )

@@ -8,11 +8,63 @@ free cash flow, EBIT, EBITDA, net margin, etc.
 Uses 'synonyms_utils.compute_capex_single_period' for safer fallback when explicit 'capital_expenditures' is absent.
 """
 
-from typing import Optional
+from typing import List, Optional, TypedDict
 
 import numpy as np
 import pandas as pd
 from edgar import Company
+
+
+class RawMetrics(TypedDict, total=False):
+    """Schema for the internal metrics dict flowing through the pipeline.
+
+    All keys are optional (``total=False``). Public metric keys use
+    human-readable names; internal balance-sheet values use ``_`` prefixed
+    keys to avoid collisions.
+    """
+
+    Revenue: float
+    CostOfRev: float
+    Net_Income: float  # stored as "Net Income" at runtime
+    Operating_Income: float
+    Free_Cash_Flow: float
+    Cash_from_Operations: float
+    Income_Tax_Expense: float
+    EBIT_standard: float
+    EBITDA_standard: float
+    Gross_Margin_pct: float
+    Net_Margin_pct: float
+    Operating_Margin_pct: float
+    Current_Ratio: float
+    Debt_to_Equity: float
+    ROE_pct: float
+    ROA_pct: float
+    Interest_Coverage: float
+    Net_Debt: float
+    Net_Debt_EBITDA: float
+    Alerts: List[str]
+    _total_assets: float
+    _total_liabilities: float
+    _total_equity: float
+    _current_assets: float
+    _current_liabilities: float
+    _short_term_debt: float
+    _long_term_debt: float
+    _cash_equivalents: float
+    _accounts_receivable: float
+    _inventory: float
+    _accounts_payable: float
+    _retained_earnings: float
+    _ppe_net: float
+    _shares_outstanding: float
+    _dep_amort: float
+    _sga: float
+    _short_term_investments: float
+    _capex: float
+    _income_before_taxes: float
+    _IdentityCheck: str
+    _is_financial: bool
+    _scores: dict
 
 from .config import ALERTS_CONFIG, get_alerts_config
 from .scores import compute_all_scores, run_dqc_checks
@@ -42,6 +94,7 @@ def compute_ratios_and_metrics(
     income_df: pd.DataFrame,
     cash_df: pd.DataFrame,
     alerts_config: Optional[dict] = None,
+    is_financial: bool = False,
 ) -> dict:
     """
     Compute key financial ratios from the provided DataFrames (Balance, Income, Cash Flow).
@@ -229,6 +282,7 @@ def compute_ratios_and_metrics(
     # ========== ACCOUNTING IDENTITY VALIDATION ==========
     identity_check = _validate_accounting_identity(total_assets, total_liabs, total_equity)
     metrics["_IdentityCheck"] = identity_check
+    metrics["_is_financial"] = is_financial
 
     # ========== ALERTS ==========
     alerts = []
@@ -275,7 +329,7 @@ def compute_ratios_and_metrics(
     metrics["Alerts"] = alerts
 
     # ========== SCORING MODELS ==========
-    scores = compute_all_scores(metrics, balance_df, income_df, cash_df)
+    scores = compute_all_scores(metrics, balance_df, income_df, cash_df, is_financial=is_financial)
     metrics["_scores"] = scores
 
     return metrics
@@ -342,18 +396,24 @@ QUARTERLY_FORM_TYPES = ("10-Q", "10-Q/A")
 
 
 def get_filing_snapshot_with_fallback(
-    comp: Company, form_types: tuple, alerts_config: Optional[dict] = None,
+    comp: Company, form_types: tuple,
+    alerts_config: Optional[dict] = None,
+    is_financial: bool = False,
 ) -> dict:
     """Try each form type in order, returning the first successful snapshot."""
     for ft in form_types:
-        snap = get_single_filing_snapshot(comp, ft, alerts_config=alerts_config)
+        snap = get_single_filing_snapshot(
+            comp, ft, alerts_config=alerts_config, is_financial=is_financial,
+        )
         if snap.get("metrics"):
             return snap
     return {"metrics": {}, "filing_info": {}}
 
 
 def get_single_filing_snapshot(
-    comp: Company, form_type: str, alerts_config: Optional[dict] = None,
+    comp: Company, form_type: str,
+    alerts_config: Optional[dict] = None,
+    is_financial: bool = False,
 ) -> dict:
     """
     Retrieve the latest 'form_type' filing for a given company,
@@ -388,13 +448,17 @@ def get_single_filing_snapshot(
     inc_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-{form_type}-INC"), f"{tkr}-{form_type}-INC")
     cf_df = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-{form_type}-CF"), f"{tkr}-{form_type}-CF")
 
-    metrics = compute_ratios_and_metrics(bs_df, inc_df, cf_df, alerts_config=alerts_config)
+    metrics = compute_ratios_and_metrics(
+        bs_df, inc_df, cf_df, alerts_config=alerts_config, is_financial=is_financial,
+    )
     result["metrics"] = metrics
     result["filing_info"] = filing_info
     return result
 
 
-def get_prior_annual_metrics(comp: Company) -> dict:
+def get_prior_annual_metrics(
+    comp: Company, alerts_config: Optional[dict] = None,
+) -> dict:
     """Fetch the second-most-recent annual filing's metrics for YoY comparisons.
 
     Returns an empty dict if no prior-year filing is available.
@@ -413,7 +477,7 @@ def get_prior_annual_metrics(comp: Company) -> dict:
             bs = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "balance_sheet"), f"{tkr}-prior-BS"), f"{tkr}-prior-BS")
             inc = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "income_statement"), f"{tkr}-prior-INC"), f"{tkr}-prior-INC")
             cf = make_numeric_df(ensure_dataframe(_get_financial_statement(fin, "cash_flow_statement"), f"{tkr}-prior-CF"), f"{tkr}-prior-CF")
-            metrics = compute_ratios_and_metrics(bs, inc, cf)
+            metrics = compute_ratios_and_metrics(bs, inc, cf, alerts_config=alerts_config)
             if metrics:
                 logger.info("%s: Loaded prior-year metrics from %s for YoY scores.", tkr, ft)
                 return metrics

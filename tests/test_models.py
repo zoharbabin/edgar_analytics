@@ -313,6 +313,40 @@ class TestAnalysisResult:
         assert isinstance(panel, pd.DataFrame)
         assert panel.empty
 
+    def test_to_panel_quarterly(self):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    multiyear=MultiYearData(
+                        quarterly_data={"Revenue": {"2023-Q1": 90, "2023-Q2": 95}},
+                    ),
+                ),
+            },
+        )
+        import pandas as pd
+        panel = result.to_panel(frequency="quarterly")
+        assert isinstance(panel, pd.DataFrame)
+        assert ("AAPL", "2023-Q2") in panel.index
+        assert panel.loc[("AAPL", "2023-Q2"), "Revenue"] == 95
+
+    def test_to_panel_default_is_annual(self):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    multiyear=MultiYearData(
+                        annual_data={"Revenue": {"2022": 100}},
+                        quarterly_data={"Revenue": {"2023-Q1": 25}},
+                    ),
+                ),
+            },
+        )
+        panel = result.to_panel()
+        assert ("AAPL", "2022") in panel.index
+
     def test_to_parquet(self, tmp_path):
         result = AnalysisResult(
             main_ticker="AAPL",
@@ -330,3 +364,62 @@ class TestAnalysisResult:
         import pandas as pd
         df = pd.read_parquet(path)
         assert df.loc["AAPL", "Revenue"] == 1000
+
+    def test_to_parquet_writes_panel_file(self, tmp_path):
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    annual_snapshot=FilingSnapshot(metrics=SnapshotMetrics(revenue=500)),
+                    multiyear=MultiYearData(
+                        annual_data={"Revenue": {"2022": 400, "2023": 500}},
+                    ),
+                ),
+            },
+        )
+        path = str(tmp_path / "out.parquet")
+        result.to_parquet(path)
+        panel_path = tmp_path / "out_panel.parquet"
+        assert panel_path.exists()
+        import pandas as pd
+        panel = pd.read_parquet(panel_path)
+        assert ("AAPL", "2023") in panel.index
+
+    def test_to_parquet_writes_scores_file(self, tmp_path):
+        scores = ScoresResult(
+            altman=AltmanZScore(z_score=3.5, zone="Safe", model="Z (manufacturing)"),
+            dupont=DuPontDecomposition(roe_3=15.0, roe_5=14.5),
+        )
+        result = AnalysisResult(
+            main_ticker="AAPL",
+            tickers={
+                "AAPL": TickerAnalysis(
+                    ticker="AAPL",
+                    annual_snapshot=FilingSnapshot(
+                        metrics=SnapshotMetrics(revenue=1000, scores=scores),
+                    ),
+                ),
+            },
+        )
+        path = str(tmp_path / "out.parquet")
+        result.to_parquet(path)
+        scores_path = tmp_path / "out_scores.parquet"
+        assert scores_path.exists()
+        import pandas as pd
+        df = pd.read_parquet(scores_path)
+        assert df.loc["AAPL", "altman_z"] == pytest.approx(3.5)
+
+    def test_is_financial_round_trip(self):
+        m = SnapshotMetrics.from_dict({"Revenue": 1000, "_is_financial": True})
+        assert m.is_financial is True
+        d = m.to_dict()
+        assert d["_is_financial"] is True
+
+    def test_valuation_round_trip(self):
+        from edgar_analytics.market_data import ValuationRatios
+        v = ValuationRatios(pe_ratio=25.0, pb_ratio=8.0)
+        m = SnapshotMetrics.from_dict({"Revenue": 1000, "_valuation": v})
+        assert m.valuation.pe_ratio == 25.0
+        d = m.to_dict()
+        assert d["_valuation"]["pe_ratio"] == 25.0
