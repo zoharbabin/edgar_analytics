@@ -9,7 +9,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 - **Suggest features** — have an idea? [Open a feature request](https://github.com/zoharbabin/edgar_analytics/issues/new?template=feature_request.yml)
 - **Improve documentation** — fix typos, add examples, clarify explanations
 - **Submit code** — fix bugs, add features, improve test coverage
-- **Ask questions** — use [GitHub Discussions](https://github.com/zoharbabin/edgar_analytics/discussions) for Q&A
+- **Ask questions** — [open an issue](https://github.com/zoharbabin/edgar_analytics/issues/new) for Q&A
 
 ## Development Setup
 
@@ -147,7 +147,7 @@ This library computes financial metrics that people may use for analysis. Accura
 
 ## Getting Help
 
-- **Questions about the code**: [GitHub Discussions](https://github.com/zoharbabin/edgar_analytics/discussions)
+- **Questions about the code**: [Open an issue](https://github.com/zoharbabin/edgar_analytics/issues/new)
 - **Bug reports**: [Issue tracker](https://github.com/zoharbabin/edgar_analytics/issues)
 - **Security issues**: See [SECURITY.md](SECURITY.md)
 

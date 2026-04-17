@@ -362,7 +362,7 @@ Quick links:
 - [Report a bug](https://github.com/zoharbabin/edgar_analytics/issues/new?template=bug_report.yml)
 - [Report a data accuracy issue](https://github.com/zoharbabin/edgar_analytics/issues/new?template=data_accuracy.yml)
 - [Request a feature](https://github.com/zoharbabin/edgar_analytics/issues/new?template=feature_request.yml)
-- [Ask a question](https://github.com/zoharbabin/edgar_analytics/discussions)
+- [Ask a question](https://github.com/zoharbabin/edgar_analytics/issues/new)
 - [Security policy](SECURITY.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 
