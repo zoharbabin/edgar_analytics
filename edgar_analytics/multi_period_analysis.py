@@ -190,7 +190,10 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
 
             fcf_map = {}
             for col in sorted_cf_cols:
-                opcf = op_values.get(col, 0.0)
+                opcf = op_values.get(col)
+                if opcf is None:
+                    logger.debug("%s: no operating CF for period %s, skipping FCF", tkr, col)
+                    continue
                 capex_for_period = compute_capex_for_column(cf_df, col, debug_label=f"{tkr}->CapExCol")
                 fcf_map[col] = opcf - capex_for_period
 

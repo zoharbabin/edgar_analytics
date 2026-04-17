@@ -63,20 +63,23 @@ class ArimaForecastStrategy(ForecastStrategy):
 
         :param rev_dict:      Dictionary of {period_label -> revenue_value}
         :param is_quarterly:  If True, we may attempt a seasonal_order=(...,4) for quarterly data.
-        :return: Forecast value (may be negative for declining trends), or 0.0 fallback on error.
+        :return: Forecast value (may be negative for declining trends), or naive fallback on error.
         """
-        if not HAS_STATSMODELS or len(rev_dict) < MIN_DATA_POINTS:
-            logger.warning(
-                "ArimaForecastStrategy: insufficient data or statsmodels missing => forecast=0.0"
-            )
-            return 0.0
-
         sorted_periods = sorted(rev_dict.keys(), key=parse_period_label)
         series_vals = [rev_dict[p] for p in sorted_periods]
+        naive_fallback = series_vals[-1] if series_vals else 0.0
+
+        if not HAS_STATSMODELS or len(rev_dict) < MIN_DATA_POINTS:
+            logger.warning(
+                "ArimaForecastStrategy: insufficient data (%d pts) or statsmodels missing => naive fallback=%.2f",
+                len(rev_dict), naive_fallback,
+            )
+            return naive_fallback
 
         try:
             with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+                warnings.filterwarnings("ignore", category=UserWarning)
+                warnings.filterwarnings("ignore", message=".*convergence.*")
 
                 candidates = []
                 if len(series_vals) < 8:
@@ -116,11 +119,22 @@ class ArimaForecastStrategy(ForecastStrategy):
                         )
 
                 if not best_fit:
-                    logger.warning("ArimaForecastStrategy: no suitable model found => forecast=0.0")
-                    return 0.0
+                    logger.warning(
+                        "ArimaForecastStrategy: no suitable model found => naive fallback=%.2f",
+                        naive_fallback,
+                    )
+                    return naive_fallback
 
                 forecast_arr = best_fit.forecast(steps=1)
                 forecast_val = float(np.squeeze(forecast_arr))
+
+                if not np.isfinite(forecast_val):
+                    logger.warning(
+                        "ArimaForecastStrategy: non-finite forecast (NaN/Inf) => naive fallback=%.2f",
+                        naive_fallback,
+                    )
+                    return naive_fallback
+
                 if forecast_val < 0.0:
                     logger.warning(
                         "ArimaForecastStrategy: negative forecast=%.2f (declining revenue trend)",
@@ -130,9 +144,10 @@ class ArimaForecastStrategy(ForecastStrategy):
 
         except Exception as exc:
             logger.warning(
-                "ArimaForecastStrategy: exception during forecast => %s => 0.0 fallback", exc
+                "ArimaForecastStrategy: exception during forecast => %s => naive fallback=%.2f",
+                exc, naive_fallback,
             )
-            return 0.0
+            return naive_fallback
 
 
 def forecast_revenue(

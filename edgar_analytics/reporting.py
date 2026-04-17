@@ -53,10 +53,10 @@ class ReportingEngine:
             return
 
         df_summary = pd.DataFrame(snapshot_dict).T
-        df_summary = self._prepare_dataframe_for_presentation(df_summary, main_ticker)
+        df_display = self._prepare_dataframe_for_presentation(df_summary.copy(), main_ticker)
 
         # Render in the console
-        self.layout_strategy.render(df_summary)
+        self.layout_strategy.render(df_display)
 
         # Display & log snapshot alerts
         self._show_alerts(snapshot_dict)
@@ -67,8 +67,9 @@ class ReportingEngine:
         # Multi-year data + forecast
         self._show_multi_year_and_forecast(metrics_map)
 
-        # Save CSV if requested
-        self._save_csv_if_requested(df_summary, csv_path)
+        # Save CSV with full precision (no formatting applied)
+        df_csv = self._prepare_dataframe_for_csv(df_summary, main_ticker)
+        self._save_csv_if_requested(df_csv, csv_path)
 
     def _build_snapshot_dict(self, metrics_map: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         snapshot_dict = {}
@@ -124,6 +125,35 @@ class ReportingEngine:
             df_summary[col] = df_summary[col].apply(custom_float_format)
 
         return df_summary
+
+    def _prepare_dataframe_for_csv(
+        self,
+        df_summary: pd.DataFrame,
+        main_ticker: str,
+    ) -> pd.DataFrame:
+        """Prepare a full-precision numeric DataFrame for CSV export (no K/M/B formatting)."""
+        if df_summary.empty:
+            return df_summary
+
+        ordered_cols = [
+            "_FormType", "_FilingDate", "Revenue", "Net Income", "Gross Margin %",
+            "Net Margin %", "Operating Expenses", "Debt-to-Equity", "Equity Ratio %",
+            "ROE %", "ROA %", "Free Cash Flow", "EBITDA (approx)", "Alerts",
+            "Intangible Ratio %", "Goodwill Ratio %", "Tangible Equity",
+            "Net Debt", "Net Debt/EBITDA", "Lease Liabilities Ratio %"
+        ]
+        existing_cols = [c for c in ordered_cols if c in df_summary.columns]
+        df_csv = df_summary[existing_cols].copy()
+
+        all_tickers = df_csv.index.tolist()
+        if main_ticker in all_tickers:
+            new_order = [main_ticker] + [t for t in all_tickers if t != main_ticker]
+            df_csv = df_csv.loc[new_order]
+
+        for col in df_csv.columns:
+            df_csv[col] = pd.to_numeric(df_csv[col], errors="coerce")
+
+        return df_csv
 
     def _show_alerts(self, snapshot_dict: Dict[str, Dict[str, Any]]) -> None:
         self._print_alert_section(

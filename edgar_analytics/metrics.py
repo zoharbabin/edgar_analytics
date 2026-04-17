@@ -76,13 +76,13 @@ def compute_ratios_and_metrics(
     metrics["Revenue"] = revenue
     metrics["CostOfRev"] = cost_rev
     metrics["Gross Profit"] = gross_profit
-    metrics["Gross Margin %"] = (gross_profit / revenue * 100.0) if revenue else 0.0
+    metrics["Gross Margin %"] = (gross_profit / revenue * 100.0) if revenue else np.nan
     metrics["OpEx"] = op_exp
     metrics["Net Income"] = net_income
-    metrics["Net Margin %"] = ((net_income / revenue) * 100.0) if revenue else 0.0
+    metrics["Net Margin %"] = ((net_income / revenue) * 100.0) if revenue else np.nan
 
     operating_income_approx = gross_profit - op_exp
-    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else 0.0
+    metrics["Operating Margin %"] = ((operating_income_approx / revenue) * 100.0) if revenue else np.nan
     metrics["EBIT (approx)"] = operating_income_approx
     metrics["EBITDA (approx)"] = operating_income_approx + dep_amort
 
@@ -93,7 +93,7 @@ def compute_ratios_and_metrics(
     total_liabs = find_synonym_value(balance_df, SYNONYMS["total_liabilities"], 0.0, "BS->TotalLiab")
     total_equity = find_synonym_value(balance_df, SYNONYMS["total_equity"], 0.0, "BS->TotalEquity")
 
-    metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs else 0.0
+    metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs else np.nan
 
     if total_equity < 0:
         metrics["Debt-to-Equity"] = np.nan
@@ -101,7 +101,7 @@ def compute_ratios_and_metrics(
         metrics["Debt-to-Equity"] = np.nan
     else:
         metrics["Debt-to-Equity"] = total_liabs / total_equity
-    metrics["Equity Ratio %"] = ((total_equity / total_assets) * 100.0) if total_assets else 0.0
+    metrics["Equity Ratio %"] = ((total_equity / total_assets) * 100.0) if total_assets else np.nan
 
     # ========== CASH FLOW STATEMENT ==========
     op_cf = find_synonym_value(cash_df, SYNONYMS["cash_flow_operating"], 0.0, "CF->OpCF")
@@ -114,11 +114,9 @@ def compute_ratios_and_metrics(
     # ========== ROE / ROA ==========
     if total_equity > 0:
         metrics["ROE %"] = (net_income / total_equity) * 100.0
-    elif total_equity < 0:
-        metrics["ROE %"] = np.nan
     else:
-        metrics["ROE %"] = 0.0
-    metrics["ROA %"] = ((net_income / total_assets) * 100.0) if total_assets else 0.0
+        metrics["ROE %"] = np.nan
+    metrics["ROA %"] = ((net_income / total_assets) * 100.0) if total_assets else np.nan
 
     # ========== IFRS/GAAP EXPANSIONS ==========
     intangible_val = find_synonym_value(balance_df, SYNONYMS["intangible_assets"], 0.0, "BS->Intangibles")
@@ -133,24 +131,27 @@ def compute_ratios_and_metrics(
         metrics["Intangible Ratio %"] = (intangible_val / total_assets) * 100.0
         metrics["Goodwill Ratio %"] = (goodwill_val / total_assets) * 100.0
     else:
-        metrics["Intangible Ratio %"] = 0.0
-        metrics["Goodwill Ratio %"] = 0.0
+        metrics["Intangible Ratio %"] = np.nan
+        metrics["Goodwill Ratio %"] = np.nan
 
     net_intangibles = intangible_val + goodwill_val
     tangible_equity = total_equity - net_intangibles
     metrics["Tangible Equity"] = tangible_equity
 
+    st_invest_val = find_synonym_value(balance_df, SYNONYMS["short_term_investments"], 0.0, "BS->STInvest")
+    lt_invest_val = find_synonym_value(balance_df, SYNONYMS["long_term_investments"], 0.0, "BS->LTInvest")
+
     total_leases = oper_lease_val + fin_lease_val
     gross_debt = short_debt_val + long_debt_val + total_leases
-    net_debt = gross_debt - cash_equiv_val
+    net_debt = gross_debt - cash_equiv_val - st_invest_val - lt_invest_val
     metrics["Net Debt"] = net_debt
 
     ebitda_approx = metrics["EBITDA (approx)"]
-    if ebitda_approx > 0:
+    if pd.notna(ebitda_approx) and ebitda_approx > 0:
         metrics["Net Debt/EBITDA"] = net_debt / ebitda_approx
     else:
         metrics["Net Debt/EBITDA"] = np.nan
-    metrics["Lease Liabilities Ratio %"] = ((total_leases / total_assets) * 100.0) if total_assets else 0.0
+    metrics["Lease Liabilities Ratio %"] = ((total_leases / total_assets) * 100.0) if total_assets else np.nan
 
     # ========== INTEREST EXPENSE / TAX EXPENSE / STANDARD EBIT & EBITDA ==========
     interest_exp = find_synonym_value(income_df, SYNONYMS["interest_expense"], 0.0, "INC->InterestExpense")
@@ -169,7 +170,8 @@ def compute_ratios_and_metrics(
 
     # ========== ALERTS ==========
     alerts = []
-    if metrics["Net Margin %"] < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
+    net_margin = metrics["Net Margin %"]
+    if pd.notna(net_margin) and net_margin < ALERTS_CONFIG["NEGATIVE_MARGIN"]:
         alerts.append(f"Net margin below {ALERTS_CONFIG['NEGATIVE_MARGIN']}% (negative)")
 
     de_ratio = metrics["Debt-to-Equity"]
@@ -179,9 +181,10 @@ def compute_ratios_and_metrics(
         alerts.append("Negative shareholders' equity (potential insolvency)")
 
     roe = metrics["ROE %"]
-    if pd.notna(roe) and 0.0 < roe < ALERTS_CONFIG["LOW_ROE"]:
+    if pd.notna(roe) and roe < ALERTS_CONFIG["LOW_ROE"]:
         alerts.append(f"ROE < {ALERTS_CONFIG['LOW_ROE']}%")
-    if 0.0 < metrics["ROA %"] < ALERTS_CONFIG["LOW_ROA"]:
+    roa = metrics["ROA %"]
+    if pd.notna(roa) and roa < ALERTS_CONFIG["LOW_ROA"]:
         alerts.append(f"ROA < {ALERTS_CONFIG['LOW_ROA']}%")
 
     if tangible_equity < 0:

@@ -10,7 +10,7 @@ from .logging_utils import configure_logging
 @click.option(
     "--csv",
     "-c",
-    type=click.Path(writable=True, dir_okay=True, exists=False),
+    type=click.Path(writable=True, dir_okay=False, exists=False),
     default=None,
     help="Optional path to save the final CSV summary. E.g., 'results.csv'."
 )

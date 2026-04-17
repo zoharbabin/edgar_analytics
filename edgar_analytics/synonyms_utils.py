@@ -139,7 +139,7 @@ def find_synonym_value(
                 partial_rows.append((row_label, row_val, coverage))
 
     if partial_rows:
-        partial_rows.sort(key=lambda x: x[2], reverse=True)
+        partial_rows.sort(key=lambda x: (x[2], abs(x[1])), reverse=True)
         best_label, best_val, _ = partial_rows[0]
         logger.debug(
             "find_synonym_value(%s): PARTIAL row='%s', val=%.2f among %d matches",
@@ -244,7 +244,7 @@ def compute_capex_single_period(cf_df: pd.DataFrame, debug_label: str = "CapEx")
     3) Negative results are clamped to 0.0.
     """
     direct_capex = find_synonym_value(cf_df, SYNONYMS["capital_expenditures"], fallback=None, debug_label=f"{debug_label}-DirectCapex")
-    if direct_capex is not None and not np.isnan(direct_capex):
+    if direct_capex is not None and not pd.isna(direct_capex):
         if direct_capex < 0:
             direct_capex = abs(direct_capex)
         logger.debug("%s: direct capex found=%.2f", debug_label, direct_capex)

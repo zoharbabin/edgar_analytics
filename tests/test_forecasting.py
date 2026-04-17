@@ -29,10 +29,16 @@ class SimpleGrowthStrategy(ForecastStrategy):
 
 def test_forecast_insufficient_data():
     """
-    If len(rev_dict) < MIN_DATA_POINTS => default ArimaForecastStrategy => forecast=0.0
+    If len(rev_dict) < MIN_DATA_POINTS => default ArimaForecastStrategy => naive fallback (last value).
     """
     rev_dict = {"2021": 100}
     result = forecast_revenue(rev_dict, is_quarterly=False)
+    assert result == 100.0
+
+
+def test_forecast_empty_data():
+    """Empty dict => 0.0 fallback."""
+    result = forecast_revenue({}, is_quarterly=False)
     assert result == 0.0
 
 
@@ -61,7 +67,7 @@ def test_forecast_enough_data():
 
 def test_forecast_arima_fit_error():
     """
-    If there's an error in ARIMA model fitting => fallback=0.0
+    If there's an error in ARIMA model fitting => naive fallback (last value=400).
     """
     rev_dict = {
         "2016": 50,
@@ -74,7 +80,7 @@ def test_forecast_arima_fit_error():
     with patch("edgar_analytics.forecasting.ARIMA") as mock_arima:
         mock_arima.return_value.fit.side_effect = ValueError("Test model error")
         result = forecast_revenue(rev_dict, is_quarterly=False)
-        assert result == 0.0
+        assert result == 400.0
 
 
 def test_forecast_negative_result_preserved():
@@ -95,6 +101,27 @@ def test_forecast_negative_result_preserved():
 
         result = forecast_revenue(rev_dict, is_quarterly=False)
         assert result == -10.0
+
+
+def test_forecast_nan_inf_fallback():
+    """If model produces NaN or Inf, fall back to naive (last value)."""
+    rev_dict = {
+        "2016": 50,
+        "2017": 80,
+        "2018": 100,
+        "2019": 200,
+        "2020": 300,
+        "2021": 400,
+    }
+    for bad_val in [float("nan"), float("inf"), float("-inf")]:
+        with patch("edgar_analytics.forecasting.ARIMA") as mock_arima:
+            mock_fit = MagicMock()
+            mock_fit.aic = 10.0
+            mock_fit.forecast.return_value = np.array([bad_val])
+            mock_arima.return_value.fit.return_value = mock_fit
+
+            result = forecast_revenue(rev_dict, is_quarterly=False)
+            assert result == 400.0, f"Expected naive fallback for {bad_val}"
 
 
 def test_forecast_quarterly_sarimax():
