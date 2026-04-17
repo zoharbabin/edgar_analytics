@@ -241,13 +241,26 @@ def get_filing_info(filing_obj) -> dict:
     return {k: getattr(filing_obj, attr, None) or "Unknown" for k, attr in fields.items()}
 
 
+ANNUAL_FORM_TYPES = ("10-K", "20-F")
+QUARTERLY_FORM_TYPES = ("10-Q",)
+
+
+def get_filing_snapshot_with_fallback(comp: Company, form_types: tuple) -> dict:
+    """Try each form type in order, returning the first successful snapshot."""
+    for ft in form_types:
+        snap = get_single_filing_snapshot(comp, ft)
+        if snap.get("metrics"):
+            return snap
+    return {"metrics": {}, "filing_info": {}}
+
+
 def get_single_filing_snapshot(comp: Company, form_type: str) -> dict:
     """
-    Retrieve the latest 'form_type' (10-K or 10-Q) filing for a given company,
+    Retrieve the latest 'form_type' filing for a given company,
     parse metrics, and attach filing info. If missing or any error, return empty structures.
 
     :param comp: edgar.Company object
-    :param form_type: e.g. "10-K" or "10-Q"
+    :param form_type: e.g. "10-K", "20-F", or "10-Q"
     :return: dict with "metrics" and "filing_info" sub-dicts
     """
     result = {"metrics": {}, "filing_info": {}}

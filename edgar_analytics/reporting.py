@@ -188,6 +188,17 @@ class ReportingEngine:
             line_out = f"[bold]{ticker}[/bold] => {yoy_msg}{cagr_msg}{fc_text}"
             self.console.print(line_out)
 
+            yoy_all = multi.get("yoy_growth", {})
+            cagr_all = multi.get("cagr", {})
+            for metric in ("Net Income", "Gross Profit", "Operating Income"):
+                metric_yoy = yoy_all.get(metric, {})
+                metric_cagr = cagr_all.get(metric, 0.0)
+                if metric_yoy or metric_cagr:
+                    avg = sum(metric_yoy.values()) / len(metric_yoy) if metric_yoy else 0.0
+                    self.console.print(
+                        f"  {metric}: avg yoy={avg:.1f}%, CAGR={metric_cagr:.1f}%"
+                    )
+
         self.console.print("[bold magenta]==== End of Summary ====[/bold magenta]\n")
 
     def _save_csv_if_requested(

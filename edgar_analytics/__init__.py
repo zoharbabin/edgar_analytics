@@ -24,7 +24,13 @@ Modules
 """
 
 from .synonyms import SYNONYMS
-from .metrics import compute_ratios_and_metrics, get_single_filing_snapshot
+from .metrics import (
+    compute_ratios_and_metrics,
+    get_single_filing_snapshot,
+    get_filing_snapshot_with_fallback,
+    ANNUAL_FORM_TYPES,
+    QUARTERLY_FORM_TYPES,
+)
 from .forecasting import forecast_revenue, ForecastStrategy, ArimaForecastStrategy
 from .multi_period_analysis import (
     retrieve_multi_year_data,
@@ -51,6 +57,9 @@ __all__ = [
     "SYNONYMS",
     "compute_ratios_and_metrics",
     "get_single_filing_snapshot",
+    "get_filing_snapshot_with_fallback",
+    "ANNUAL_FORM_TYPES",
+    "QUARTERLY_FORM_TYPES",
     "forecast_revenue",
     "ForecastStrategy",
     "ArimaForecastStrategy",

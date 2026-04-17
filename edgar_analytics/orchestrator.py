@@ -13,7 +13,12 @@ from edgar import Company, set_identity
 
 from .logging_utils import get_logger
 from .reporting import ReportingEngine
-from .metrics import get_single_filing_snapshot
+from .metrics import (
+    get_single_filing_snapshot,
+    get_filing_snapshot_with_fallback,
+    ANNUAL_FORM_TYPES,
+    QUARTERLY_FORM_TYPES,
+)
 from .forecasting import forecast_revenue
 from .multi_period_analysis import (
     retrieve_multi_year_data,
@@ -136,8 +141,8 @@ class TickerOrchestrator:
             self.logger.exception("Failed to create Company object for %s: %s", ticker, exc)
             return {}
 
-        annual_snap = get_single_filing_snapshot(comp, "10-K")
-        quarterly_snap = get_single_filing_snapshot(comp, "10-Q")
+        annual_snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        quarterly_snap = get_filing_snapshot_with_fallback(comp, QUARTERLY_FORM_TYPES)
 
         multi_data = retrieve_multi_year_data(ticker, n_years=n_years, n_quarters=n_quarters)
         rev_annual = multi_data.get("annual_data", {}).get("Revenue", {})

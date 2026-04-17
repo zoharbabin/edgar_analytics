@@ -123,18 +123,24 @@ def find_synonym_value(
             return val
 
     partial_rows = []
+    seen_labels = set()
     for syn in synonyms_list:
         syn_lower = normalize_text(syn)
         part_mask = idx_lower.str.contains(syn_lower, na=False, regex=False)
-        for row_label in df_index_str[part_mask]:
+        for i, row_label in enumerate(df_index_str[part_mask]):
+            if row_label in seen_labels:
+                continue
+            seen_labels.add(row_label)
             row_data = df.loc[row_label]
             row_val = get_last_numeric_value(row_data, fallback=None, debug_label=f"{debug_label} PARTIAL [{syn}]")
             if row_val is not None and not pd.isna(row_val):
-                partial_rows.append((row_label, row_val))
+                label_lower = idx_lower[df_index_str == row_label][0] if (df_index_str == row_label).any() else row_label.lower()
+                coverage = len(syn_lower) / max(len(label_lower), 1)
+                partial_rows.append((row_label, row_val, coverage))
 
     if partial_rows:
-        partial_rows.sort(key=lambda x: abs(x[1]), reverse=True)
-        best_label, best_val = partial_rows[0]
+        partial_rows.sort(key=lambda x: x[2], reverse=True)
+        best_label, best_val, _ = partial_rows[0]
         logger.debug(
             "find_synonym_value(%s): PARTIAL row='%s', val=%.2f among %d matches",
             debug_label, best_label, best_val, len(partial_rows)
@@ -210,10 +216,12 @@ def find_best_synonym_row(
                 row_data = row_data.iloc[0]
             row_sum = row_data[cols].abs().sum(skipna=True)
             if row_sum > 0:
-                candidate_rows.append((row_label, row_sum))
+                label_lower = normalize_text(str(row_label))
+                coverage = len(syn_lower) / max(len(label_lower), 1)
+                candidate_rows.append((row_label, coverage, row_sum))
 
     if candidate_rows:
-        candidate_rows.sort(key=lambda x: x[1], reverse=True)
+        candidate_rows.sort(key=lambda x: (x[1], x[2]), reverse=True)
         best_label = candidate_rows[0][0]
         logger.debug(
             "find_best_synonym_row(%s): PARTIAL match '%s' among %d candidates",

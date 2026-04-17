@@ -53,7 +53,7 @@ class ArimaForecastStrategy(ForecastStrategy):
 
     - Uses statsmodels ARIMA or SARIMAX for seasonal logic.
     - Requires >= MIN_DATA_POINTS or returns 0.0.
-    - Clamps negative forecasts to 0.0.
+    - Negative forecasts are preserved to surface declining trends.
     - Logs warning if statsmodels is missing or ARIMA model fails.
     """
 
@@ -63,7 +63,7 @@ class ArimaForecastStrategy(ForecastStrategy):
 
         :param rev_dict:      Dictionary of {period_label -> revenue_value}
         :param is_quarterly:  If True, we may attempt a seasonal_order=(...,4) for quarterly data.
-        :return: Clamped forecast >= 0.0, or 0.0 fallback on error.
+        :return: Forecast value (may be negative for declining trends), or 0.0 fallback on error.
         """
         if not HAS_STATSMODELS or len(rev_dict) < MIN_DATA_POINTS:
             logger.warning(
@@ -121,8 +121,12 @@ class ArimaForecastStrategy(ForecastStrategy):
 
                 forecast_arr = best_fit.forecast(steps=1)
                 forecast_val = float(np.squeeze(forecast_arr))
-                # Clamp negative results to 0.0
-                return max(forecast_val, 0.0)
+                if forecast_val < 0.0:
+                    logger.warning(
+                        "ArimaForecastStrategy: negative forecast=%.2f (declining revenue trend)",
+                        forecast_val,
+                    )
+                return forecast_val
 
         except Exception as exc:
             logger.warning(

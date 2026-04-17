@@ -227,3 +227,24 @@ def test_find_best_synonym_row_duplicate_index():
     assert row is not None
     assert isinstance(row, pd.Series)
     assert row["2023"] == 500
+
+
+def test_partial_match_prefers_tighter_coverage():
+    """Partial matching should prefer 'Revenue' over 'Deferred revenue' for 'revenue' synonym."""
+    df = pd.DataFrame(
+        {"Value": [5000, 200]},
+        index=["Deferred revenue", "Total revenue"]
+    )
+    val = find_synonym_value(df, ["Revenue"], fallback=0.0, debug_label="CoverageTest")
+    assert val == 200.0
+
+
+def test_partial_match_row_prefers_tighter_coverage():
+    """find_best_synonym_row prefers the row whose label is most covered by the synonym."""
+    df = pd.DataFrame(
+        {"2023": [9000, 300], "2024": [9500, 350]},
+        index=["Deferred revenue from contracts", "Total revenue"]
+    )
+    row = find_best_synonym_row(df, "revenue", debug_label="CoverageRowTest")
+    assert row is not None
+    assert row["2023"] == 300

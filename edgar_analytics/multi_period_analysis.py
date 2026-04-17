@@ -13,7 +13,7 @@ from .logging_utils import get_logger
 from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
 from .synonyms_utils import find_synonym_value, find_best_synonym_row, compute_capex_for_column
 from .config import ALERTS_CONFIG
-from .metrics import _get_financial_statement
+from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES
 
 logger = get_logger(__name__)
 
@@ -23,23 +23,25 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
     Retrieve up to n_years of 10-K and n_quarters of 10-Q statements,
     building annual and quarterly data for multi-year analysis (growth, CAGR, etc.).
     """
-    logger.info("Retrieving multi-year data for %s: last %d 10-K, %d 10-Q", ticker, n_years, n_quarters)
+    logger.info("Retrieving multi-year data for %s: last %d annual, %d 10-Q", ticker, n_years, n_quarters)
     comp = Company(ticker)
 
     annual_inc_df = pd.DataFrame()
     quarterly_inc_df = pd.DataFrame()
 
-    # 10-K
-    try:
-        filings_10k = comp.get_filings(form="10-K", is_xbrl=True).head(n_years)
-        multi_10k = MultiFinancials(filings_10k)
-        inc_10k = _get_financial_statement(multi_10k, "income_statement")
-        if inc_10k is not None:
-            annual_inc_df = make_numeric_df(ensure_dataframe(inc_10k, f"{ticker}-multi10K-INC"), f"{ticker}-multi10K-INC")
-        else:
-            logger.warning("%s: No multi 10-K income statements found", ticker)
-    except Exception as e:
-        logger.error("Error retrieving multi 10-K for %s: %s", ticker, e, exc_info=True)
+    for form_type in ANNUAL_FORM_TYPES:
+        try:
+            filings = comp.get_filings(form=form_type, is_xbrl=True).head(n_years)
+            multi = MultiFinancials(filings)
+            inc = _get_financial_statement(multi, "income_statement")
+            if inc is not None:
+                annual_inc_df = make_numeric_df(ensure_dataframe(inc, f"{ticker}-multi{form_type}-INC"), f"{ticker}-multi{form_type}-INC")
+                logger.info("%s: Found multi-year income statements via %s", ticker, form_type)
+                break
+        except Exception as e:
+            logger.debug("No multi %s for %s: %s", form_type, ticker, e)
+    else:
+        logger.warning("%s: No annual income statements found (tried %s)", ticker, ", ".join(ANNUAL_FORM_TYPES))
 
     # 10-Q
     try:
@@ -59,41 +61,56 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
     yoy_rev = compute_growth_series(annual_data.get("Revenue", {}))
     cagr_rev = compute_cagr(annual_data.get("Revenue", {}))
 
+    yoy_growth = {"Revenue": yoy_rev}
+    cagr = {"Revenue": cagr_rev}
+    for label, _ in _TRACKED_METRICS:
+        if label == "Revenue":
+            continue
+        series = annual_data.get(label, {})
+        yoy_growth[label] = compute_growth_series(series)
+        cagr[label] = compute_cagr(series)
+
     return {
         "annual_data": annual_data,
         "quarterly_data": quarterly_data,
         "yoy_revenue_growth": yoy_rev,
         "cagr_revenue": cagr_rev,
+        "yoy_growth": yoy_growth,
+        "cagr": cagr,
     }
+
+
+_TRACKED_METRICS = (
+    ("Revenue", "revenue"),
+    ("Net Income", "net_income"),
+    ("Gross Profit", "gross_profit"),
+    ("Operating Income", "operating_income"),
+)
 
 
 def extract_period_values(df: pd.DataFrame, debug_label="(unknown)") -> dict:
     """
-    Locates 'Revenue' and 'Net Income' rows in a multi-column statement,
-    returning { 'Revenue': {...}, 'Net Income': {...} } by period label.
+    Locates key income statement rows in a multi-column statement,
+    returning { metric_name: {period: value, ...}, ... } by period label.
     """
+    empty = {label: {} for label, _ in _TRACKED_METRICS}
     if df.empty:
         logger.debug("extract_period_values(%s): DF empty -> returning empty dict", debug_label)
-        return {"Revenue": {}, "Net Income": {}}
+        return empty
 
     df.columns = df.columns.map(str)
     sorted_cols = sorted(df.columns, key=parse_period_label)
 
-    rev_val_row = find_best_row_for_synonym(df, "revenue", sorted_cols, f"{debug_label}->Revenue")
-    net_val_row = find_best_row_for_synonym(df, "net_income", sorted_cols, f"{debug_label}->NetIncome")
-
-    results = {"Revenue": {}, "Net Income": {}}
-    if rev_val_row is not None:
-        for c in sorted_cols:
-            val = rev_val_row.get(c, np.nan)
-            if pd.notna(val):
-                results["Revenue"][c] = float(val)
-
-    if net_val_row is not None:
-        for c in sorted_cols:
-            val = net_val_row.get(c, np.nan)
-            if pd.notna(val):
-                results["Net Income"][c] = float(val)
+    results = {}
+    for label, syn_key in _TRACKED_METRICS:
+        row = find_best_row_for_synonym(df, syn_key, sorted_cols, f"{debug_label}->{label}")
+        period_vals = {}
+        if row is not None:
+            for c in sorted_cols:
+                val = row.get(c, np.nan)
+                if pd.notna(val):
+                    period_vals[c] = float(val)
+        results[label] = period_vals
 
     return results
 

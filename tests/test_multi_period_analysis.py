@@ -26,7 +26,8 @@ def test_retrieve_multi_year_data_no_10k():
         # "MultiFinancials(...)" is replaced with mock_mf
         data = retrieve_multi_year_data("FAKE", n_years=2, n_quarters=2)
 
-    assert data["annual_data"] == {"Revenue": {}, "Net Income": {}}
+    assert data["annual_data"]["Revenue"] == {}
+    assert data["annual_data"]["Net Income"] == {}
 
 def test_extract_period_values():
     df = pd.DataFrame({
@@ -40,7 +41,10 @@ def test_extract_period_values():
 def test_extract_period_values_empty():
     df = pd.DataFrame()
     results = extract_period_values(df)
-    assert results == {"Revenue": {}, "Net Income": {}}
+    assert results["Revenue"] == {}
+    assert results["Net Income"] == {}
+    assert results["Gross Profit"] == {}
+    assert results["Operating Income"] == {}
 
 def test_compute_growth_series():
     data = {"2020-12-31": 100, "2021-12-31": 200, "2022-12-31": 180}

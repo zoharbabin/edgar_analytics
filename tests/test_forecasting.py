@@ -77,10 +77,8 @@ def test_forecast_arima_fit_error():
         assert result == 0.0
 
 
-def test_forecast_negative_result():
-    """
-    If the model forecasts negative => clamp to 0.0
-    """
+def test_forecast_negative_result_preserved():
+    """Negative forecasts are preserved to surface declining revenue trends."""
     rev_dict = {
         "2016": 50,
         "2017": 80,
@@ -91,11 +89,12 @@ def test_forecast_negative_result():
     }
     with patch("edgar_analytics.forecasting.ARIMA") as mock_arima:
         mock_model = MagicMock()
+        mock_model.fit.return_value.aic = 10.0
         mock_model.fit.return_value.forecast.return_value = np.array([-10])
         mock_arima.return_value = mock_model
 
         result = forecast_revenue(rev_dict, is_quarterly=False)
-        assert result == 0.0
+        assert result == -10.0
 
 
 def test_forecast_quarterly_sarimax():

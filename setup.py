@@ -10,7 +10,7 @@ def read_long_description():
 
 setuptools.setup(
     name="edgar-analytics",
-    version="0.3.0",
+    version="0.4.0",
     author="Zohar Babin",
     author_email="z.babin@gmail.com",
     description="A library and CLI tool for analyzing SEC EDGAR filings with financial metrics and forecasting.",
@@ -21,18 +21,21 @@ setuptools.setup(
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=[
-        "pandas",
-        "numpy",
-        "statsmodels",
-        "edgartools",
-        "click",
-        "rich",
+        "pandas>=1.5,<4",
+        "numpy>=1.23,<3",
+        "edgartools>=5.0,<6",
+        "click>=8.0,<9",
+        "rich>=12.0,<15",
     ],
     extras_require={
+        "forecast": [
+            "statsmodels>=0.13,<1",
+        ],
         "test": [
             "pytest",
             "pytz",
             "pytest-xdist",
+            "statsmodels>=0.13,<1",
         ],
     },
     entry_points={
