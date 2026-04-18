@@ -78,6 +78,55 @@ def custom_float_format(x):
     return x
 
 
+_STATEMENT_META_COLS = frozenset({
+    "concept", "label", "standard_concept", "level", "abstract",
+    "dimension", "is_breakdown", "dimension_axis", "dimension_member",
+    "dimension_member_label", "dimension_label", "balance", "weight",
+    "preferred_sign", "parent_concept", "parent_abstract_concept",
+})
+
+
+def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
+    """Convert an edgartools Statement-style DataFrame to label-indexed format.
+
+    Statement.to_dataframe() returns rows with integer index, a 'label'
+    column, metadata columns, and date-keyed value columns.  This function
+    drops abstract/dimension rows, sets 'label' as the index, and keeps
+    only the value columns so that synonym matching works.
+
+    XBRL concept tags from the 'concept' column are added as duplicate
+    rows so that synonym lists containing tags like
+    ``us-gaap_PaymentsToAcquirePropertyPlantAndEquipment`` still match.
+    """
+    if "label" not in df.columns:
+        return df
+
+    value_cols = [c for c in df.columns if c not in _STATEMENT_META_COLS]
+    if not value_cols:
+        return df
+
+    filtered = df
+    if "abstract" in df.columns:
+        filtered = filtered[~filtered["abstract"].astype(bool)]
+    if "dimension" in df.columns:
+        filtered = filtered[~filtered["dimension"].astype(bool)]
+
+    label_df = filtered.set_index("label")[value_cols]
+
+    if "concept" in filtered.columns:
+        concept_df = filtered.set_index("concept")[value_cols]
+        concept_df = concept_df[~concept_df.index.isin(label_df.index)]
+        result = pd.concat([label_df, concept_df])
+    else:
+        result = label_df
+
+    logger.debug(
+        "ensure_dataframe(%s): converted Statement DF -> label-indexed shape=%s",
+        debug_label, result.shape,
+    )
+    return result
+
+
 def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
     """Safely convert various object types to a DataFrame or return empty if not feasible."""
     if possible_df is None:
@@ -85,6 +134,11 @@ def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
         return pd.DataFrame()
 
     if isinstance(possible_df, pd.DataFrame):
+        if "label" in possible_df.columns and not isinstance(possible_df.index, pd.RangeIndex):
+            logger.debug("ensure_dataframe(%s): already DF shape=%s", debug_label, possible_df.shape)
+            return possible_df
+        if "label" in possible_df.columns:
+            return _convert_statement_df(possible_df, debug_label)
         logger.debug("ensure_dataframe(%s): already DF shape=%s", debug_label, possible_df.shape)
         return possible_df
 
@@ -92,6 +146,8 @@ def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:
         try:
             df_ = possible_df.to_dataframe()
             if isinstance(df_, pd.DataFrame):
+                if "label" in df_.columns:
+                    return _convert_statement_df(df_, debug_label)
                 logger.debug("ensure_dataframe(%s): .to_dataframe() shape=%s", debug_label, df_.shape)
                 return df_
             if isinstance(df_, np.ndarray):

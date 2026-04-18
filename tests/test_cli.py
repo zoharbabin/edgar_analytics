@@ -55,7 +55,7 @@ def test_cli_no_peers(
 ):
     mock_OrcCompany.return_value = mock_company
     mock_MPACompany.return_value = mock_company
-    mock_MultiFinancials.return_value = mock_multifin
+    mock_MultiFinancials.extract.return_value = mock_multifin
 
     with caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
         result = runner.invoke(main, ["AAPL"])
@@ -79,7 +79,7 @@ def test_cli_with_peers(
 ):
     mock_OrcCompany.return_value = mock_company
     mock_MPACompany.return_value = mock_company
-    mock_MultiFinancials.return_value = mock_multifin
+    mock_MultiFinancials.extract.return_value = mock_multifin
 
     result = runner.invoke(main, ["AAPL", "MSFT", "GOOGL"])
     assert result.exit_code == 0
@@ -103,7 +103,7 @@ def test_cli_with_csv(
 ):
     mock_OrcCompany.return_value = mock_company
     mock_MPACompany.return_value = mock_company
-    mock_MultiFinancials.return_value = mock_multifin
+    mock_MultiFinancials.extract.return_value = mock_multifin
 
     csv_file = tmp_path / "out.csv"
     with caplog.at_level(logging.INFO, logger="edgar_analytics.reporting"):
@@ -129,7 +129,7 @@ def test_cli_invalid_ticker(
 ):
     mock_OrcCompany.return_value = mock_company
     mock_MPACompany.return_value = mock_company
-    mock_MultiFinancials.return_value = mock_multifin
+    mock_MultiFinancials.extract.return_value = mock_multifin
 
     with caplog.at_level(logging.ERROR, logger="edgar_analytics.cli"):
         result = runner.invoke(main, ["@BADTICKER"])

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.5] - 2026-04-18
+
+### Critical Fixes
+- **Financial statements returned empty DataFrames**: `_get_financial_statement()` returned bound methods instead of calling them. edgartools `Financials` and `MultiFinancials` expose `balance_sheet`, `income_statement`, `cash_flow_statement` as methods — `getattr()` now calls the result when callable.
+- **Statement DataFrame format mismatch**: edgartools `Statement.to_dataframe()` returns integer-indexed DataFrames with labels in a `label` column, but synonym matching searched the index. New `_convert_statement_df()` sets `label` as the index and appends XBRL concept tags as duplicate rows so both human-readable labels and XBRL tags match.
+- **MultiFinancials constructor change**: `MultiFinancials(filings)` no longer works — constructor now requires `XBRLS`, not `EntityFilings`. All 5 call sites changed to `MultiFinancials.extract(filings)`.
+- **D&A missing for many filers**: Depreciation & amortization was only searched in the income statement. Many filers (including AAPL) report D&A only in the cash flow statement. Added fallback to check cash flow when income statement yields zero.
+- **CapEx synonym gap**: Added "Payments for acquisition of property, plant and equipment" (AAPL's label) to `capital_expenditures` synonyms.
+
+### Integration Tests
+- Added SEC API retry with exponential backoff (2s–16s) for GitHub Actions, where runner IPs get 403 Forbidden from SEC EDGAR.
+- Tests skip gracefully after retries exhaust instead of failing the suite.
+- Integration tests pass pre-warmed `Company` objects to `retrieve_multi_year_data()` to avoid internal `Company()` calls that bypass retry logic.
+
 ## [1.0.4] - 2026-04-18
 
 ### Fixes

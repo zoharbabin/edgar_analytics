@@ -953,6 +953,7 @@ SYNONYMS = {
         "Capex",
         "Property, plant and equipment acquisitions",
         "Purchase of property, plant, and equipment",
+        "Payments for acquisition of property, plant and equipment",
     ],
 
     # ======================

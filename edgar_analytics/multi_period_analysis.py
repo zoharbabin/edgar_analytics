@@ -35,7 +35,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
     for form_type in ANNUAL_FORM_TYPES:
         try:
             filings = comp.get_filings(form=form_type, is_xbrl=True).head(n_years)
-            multi = MultiFinancials(filings)
+            multi = MultiFinancials.extract(filings)
             inc = _get_financial_statement(multi, "income_statement")
             if inc is not None:
                 annual_inc_df = make_numeric_df(ensure_dataframe(inc, f"{ticker}-multi{form_type}-INC"), f"{ticker}-multi{form_type}-INC")
@@ -49,7 +49,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
     for qtr_form in QUARTERLY_FORM_TYPES:
         try:
             filings_10q = comp.get_filings(form=qtr_form, is_xbrl=True).head(n_quarters)
-            multi_10q = MultiFinancials(filings_10q)
+            multi_10q = MultiFinancials.extract(filings_10q)
             inc_10q = _get_financial_statement(multi_10q, "income_statement")
             if inc_10q is not None:
                 quarterly_inc_df = make_numeric_df(ensure_dataframe(inc_10q, f"{ticker}-multi{qtr_form}-INC"), f"{ticker}-multi{qtr_form}-INC")
@@ -65,7 +65,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
     for form_type in ANNUAL_FORM_TYPES:
         try:
             filings = comp.get_filings(form=form_type, is_xbrl=True).head(n_years)
-            multi = MultiFinancials(filings)
+            multi = MultiFinancials.extract(filings)
             bs = _get_financial_statement(multi, "balance_sheet")
             cf = _get_financial_statement(multi, "cash_flow_statement")
             if bs is not None:
@@ -82,7 +82,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
     for qtr_form in QUARTERLY_FORM_TYPES:
         try:
             filings_q = comp.get_filings(form=qtr_form, is_xbrl=True).head(n_quarters)
-            multi_q = MultiFinancials(filings_q)
+            multi_q = MultiFinancials.extract(filings_q)
             bs_q = _get_financial_statement(multi_q, "balance_sheet")
             cf_q = _get_financial_statement(multi_q, "cash_flow_statement")
             if bs_q is not None:
@@ -334,7 +334,7 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
                 continue
         if not filings_10q:
             return results
-        multi_10q = MultiFinancials(filings_10q)
+        multi_10q = MultiFinancials.extract(filings_10q)
         bs_10q = _get_financial_statement(multi_10q, "balance_sheet")
         cf_10q = _get_financial_statement(multi_10q, "cash_flow_statement")
 

@@ -83,7 +83,10 @@ logger = get_logger(__name__)
 
 def _get_financial_statement(financials, statement_type: str):
     """Retrieve a financial statement from a Financials or MultiFinancials object."""
-    return getattr(financials, statement_type, None)
+    val = getattr(financials, statement_type, None)
+    if callable(val):
+        val = val()
+    return val
 
 
 def compute_ratios_and_metrics(
@@ -122,6 +125,8 @@ def compute_ratios_and_metrics(
 
     # ========== DEPRECIATION & D&A-IN-COGS ADJUSTMENT ==========
     dep_amort = find_synonym_value(income_df, SYNONYMS["depreciation_amortization"], 0.0, "INC->DepAmort")
+    if dep_amort == 0.0:
+        dep_amort = find_synonym_value(cash_df, SYNONYMS["depreciation_amortization"], 0.0, "CF->DepAmort")
     dep_amort = flip_sign_if_negative_expense(dep_amort, "depreciation_amortization")
     orig_cost_rev = cost_rev
     cost_rev, dep_amort = adjust_for_dep_in_cogs(income_df, cost_rev, dep_amort)
