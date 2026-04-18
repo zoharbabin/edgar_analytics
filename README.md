@@ -79,7 +79,9 @@ Supports both U.S. GAAP and IFRS filers. Foreign private issuers that file IFRS-
   - Quality: Accruals Ratio, Earnings Quality, Cash Flow Coverage, Sloan Accrual
   - Profitability: ROE, ROA, EBIT, EBITDA (both approximate and standard)
   - Balance sheet: Intangible ratio, goodwill ratio, net debt, lease liabilities, tangible equity
-- **Scoring Models**: Piotroski F-Score, Altman Z-Score, Beneish M-Score, DuPont Decomposition, Capital Efficiency (ROIC/WACC), Per-Share Metrics, Working Capital Cycle.
+- **Scoring Models**: Piotroski F-Score, Altman Z-Score (manufacturing + non-manufacturing Z'' variants with auto-detection), Beneish M-Score, DuPont Decomposition, Capital Efficiency (ROIC/WACC), Per-Share Metrics (basic + diluted EPS), Working Capital Cycle (DSO/DIO/DPO).
+- **Financial Company Detection**: Auto-detects banks and insurers via SIC code (6000-6999) and suppresses inapplicable models (Altman Z, working capital cycle) that produce garbage for financial institutions.
+- **Valuation Ratios**: P/E, P/B, EV/EBITDA, and Earnings Yield from live market data (requires `pip install edgar-analytics[valuation]`).
 - **TTM (Trailing Twelve Months)**: Automatically computed from quarterly data and included in results.
 - **Alerts**:
   - Negative net margin
@@ -92,11 +94,12 @@ Supports both U.S. GAAP and IFRS filers. Foreign private issuers that file IFRS-
   - Easily swap in your **own forecasting logic** by implementing a custom strategy (see [Extensibility](#extensibility)).
 - **Disk Caching**: SQLite-backed caching with TTL support. Past filings cached forever, current filings cached 24h. Install with `pip install edgar-analytics[cache]`.
 - **CompanyFacts Cross-Validation**: Automatic cross-check against SEC XBRL CompanyFacts API. Discrepancies logged as warnings, never modifies parsed values.
-- **Concurrent Peer Fetching**: Peers analyzed in parallel with `ThreadPoolExecutor` and SEC rate-limit compliance (`Semaphore(10)`).
+- **Concurrent Peer Fetching**: Peers analyzed in parallel with `ThreadPoolExecutor` and SEC rate-limit compliance (time-based 10 req/sec limiter).
 - **Output Formats**:
   - `result.to_dataframe()` — One row per ticker, columns for metrics
   - `result.to_panel()` — MultiIndex DataFrame (ticker × period × metric) for quant research
   - `result.to_parquet(path)` — Write to Parquet (`pip install edgar-analytics[parquet]`)
+  - `result.to_json_dict()` / `AnalysisResult.from_json_dict()` — JSON serialization round-trip
   - CSV export via CLI
 - **Command-Line Interface (CLI)**:
   - Analyze one or more tickers with a single command
@@ -123,7 +126,8 @@ pip install edgar-analytics
 pip install edgar-analytics[cache]      # Disk caching (diskcache)
 pip install edgar-analytics[parquet]    # Parquet output (pyarrow)
 pip install edgar-analytics[forecast]   # Revenue forecasting (statsmodels)
-pip install edgar-analytics[cache,parquet,forecast]  # All extras
+pip install edgar-analytics[valuation]  # Market data & valuation ratios (yfinance)
+pip install edgar-analytics[cache,parquet,forecast,valuation]  # All extras
 ```
 
 ### Setting Up a Local Virtual Environment
@@ -241,20 +245,36 @@ panel = result.to_panel()          # MultiIndex: ticker × period × metric
 result.to_parquet("output.parquet")  # Requires: pip install edgar-analytics[parquet]
 ```
 
+**Serialization round-trip** (save/load results as JSON):
+
+```python
+import json
+import edgar_analytics as ea
+
+result = ea.analyze("AAPL")
+# Serialize (NaN/Inf safely converted to null)
+with open("analysis.json", "w") as f:
+    json.dump(result.to_json_dict(), f)
+# Deserialize
+with open("analysis.json") as f:
+    restored = ea.AnalysisResult.from_json_dict(json.load(f))
+```
+
 For CLI-style console output with optional CSV export:
 
 ```python
 from edgar_analytics.orchestrator import TickerOrchestrator
 
-orchestrator = TickerOrchestrator()
-result = orchestrator.analyze_company(
-    ticker="AAPL",
-    peers=["MSFT", "GOOGL"],
-    csv_path="summary.csv",
-    n_years=5,
-    n_quarters=8,
-    identity="Name <email>"
-)
+# Context manager ensures cache file descriptors are released
+with TickerOrchestrator() as orchestrator:
+    result = orchestrator.analyze_company(
+        ticker="AAPL",
+        peers=["MSFT", "GOOGL"],
+        csv_path="summary.csv",
+        n_years=5,
+        n_quarters=8,
+        identity="Name <email>"
+    )
 ```
 
 ---
@@ -291,7 +311,10 @@ result = orchestrator.analyze_company(
 10. **`cli.py`**  
     Click-based CLI with rich output formatting.
 
-11. **`logging_utils.py`, `data_utils.py`, `synonyms_utils.py`, `synonyms.py`, `config.py`**  
+11. **`market_data.py`**  
+    Valuation ratios (P/E, P/B, EV/EBITDA, Earnings Yield) from yfinance market data. Guards behind optional `yfinance` dependency.
+
+12. **`logging_utils.py`, `data_utils.py`, `synonyms_utils.py`, `synonyms.py`, `config.py`**  
     Logging, data parsing, synonyms, numeric formatting, and config thresholds.
 
 ---
@@ -343,13 +366,14 @@ EDGAR Analytics provides two parallel logging outputs:
    - Can be suppressed with `--suppress-logs` for cleaner output
    - Supports multiple log levels (DEBUG/INFO/WARNING/ERROR/CRITICAL)
 
-2. **JSON Log File**:
-   - Always written to `edgar_analytics_debug.jsonl`
+2. **JSON Log File** (opt-in for library users, automatic for CLI):
+   - Written to `edgar_analytics_debug.jsonl` when enabled
    - Contains all logs at DEBUG level (and above) in structured JSON
    - Uses `RotatingFileHandler` (10 MB max, 3 backups) to prevent unbounded growth
    - Ideal for debugging or integration with log management systems
    - Includes detailed context (file, line number, function name)
    - Handlers are flushed and closed on process exit via `atexit`
+   - Library users can opt in via `configure_logging(level, enable_file_logging=True)`
 
 ### Test Logging & Ticker Orchestrator
 
@@ -364,7 +388,7 @@ EDGAR Analytics provides two parallel logging outputs:
 **EDGAR Analytics** is modular, letting you add or override behavior easily:
 
 1. **Synonyms**: Extend or override synonyms in `synonyms.py` for custom labeling.
-2. **Alert Thresholds**: `config.py` contains all alert thresholds (negative margins, high leverage, net debt/EBITDA, interest coverage, FCF streaks, inventory/receivables spikes).
+2. **Alert Thresholds**: `config.py` contains all alert thresholds (negative margins, high leverage, net debt/EBITDA, interest coverage, FCF streaks, inventory/receivables spikes). Override at runtime via `ea.analyze("AAPL", alerts_config={"HIGH_LEVERAGE": 5.0})`.
 3. **Additional Metrics**: Add new ratio logic to `metrics.py` or wherever suitable.
 4. **Custom Forecast Strategies**:  
    - The library exposes a `ForecastStrategy` abstract base class in `forecasting.py`.

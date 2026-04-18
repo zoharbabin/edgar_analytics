@@ -123,7 +123,7 @@ Scope is optional but helpful: `metrics`, `forecasting`, `cli`, `synonyms`, `rep
 - Keep PRs focused — one feature or fix per PR
 - Fill out the PR template completely
 - Link to the related issue (e.g., `Fixes #12`)
-- Ensure all CI checks pass (Python 3.10, 3.11, 3.12)
+- Ensure all CI checks pass (Python 3.10, 3.11, 3.12, 3.13)
 - Be responsive to review feedback
 - Squash-merge is preferred for clean history
 

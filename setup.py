@@ -10,7 +10,7 @@ def read_long_description():
 
 setuptools.setup(
     name="edgar-analytics",
-    version="1.0.1",
+    version="1.0.3",
     author="Zohar Babin",
     author_email="z.babin@gmail.com",
     description="A library and CLI tool for analyzing SEC EDGAR filings with financial metrics and forecasting.",
@@ -57,7 +57,7 @@ setuptools.setup(
         # ------------------------------------------
         # Updated and expanded PyPI Trove Classifiers
         # ------------------------------------------
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: Financial and Insurance Industry",
         "License :: OSI Approved :: MIT License",
