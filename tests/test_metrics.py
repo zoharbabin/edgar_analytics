@@ -182,7 +182,9 @@ def test_compute_ratios_and_metrics_ifrs_extras():
 
     # net debt => (100 + 900 + 200+50) - 1000 - 0(ST invest) - 0(LT invest) => 250
     assert metrics["Net Debt"] == 250
-    assert metrics["Net Debt/EBITDA"] == pytest.approx(250 / metrics["EBITDA (standard)"], abs=1e-3)
+    # Net Debt/EBITDA uses financial debt only (no leases): (100+900) - 1000 = 0
+    financial_net_debt = 100 + 900 - 1000
+    assert metrics["Net Debt/EBITDA"] == pytest.approx(financial_net_debt / metrics["EBITDA (standard)"], abs=1e-3)
     assert metrics["Lease Liabilities Ratio %"] == pytest.approx(5.0, abs=1e-3)  # (200+50)/5000
 
 

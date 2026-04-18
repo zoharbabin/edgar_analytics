@@ -227,9 +227,11 @@ def compute_ratios_and_metrics(
     metrics["EBITDA (standard)"] = ebitda_standard
     metrics["Interest Coverage"] = (ebit_standard / interest_exp) if interest_exp > 0.0 else np.nan
 
-    # Net Debt/EBITDA uses the standard (bottom-up) EBITDA for consistency
+    # Net Debt/EBITDA: use financial debt only (excluding leases) for
+    # consistency — EBITDA (standard) doesn't add back lease expense.
+    financial_net_debt = short_debt_val + long_debt_val - cash_equiv_val - st_invest_val - lt_invest_val
     if pd.notna(ebitda_standard) and ebitda_standard > 0:
-        metrics["Net Debt/EBITDA"] = net_debt / ebitda_standard
+        metrics["Net Debt/EBITDA"] = financial_net_debt / ebitda_standard
     else:
         metrics["Net Debt/EBITDA"] = np.nan
 
@@ -404,8 +406,32 @@ def get_filing_snapshot_with_fallback(
     alerts_config: Optional[dict] = None,
     is_financial: bool = False,
 ) -> dict:
-    """Try each form type in order, returning the first successful snapshot."""
+    """Try each form type in order, preferring amendments over base filings.
+
+    For each base form (e.g. 10-K), checks if an amendment (10-K/A) was filed
+    more recently — if so, uses the amendment since it supersedes the original.
+    """
+    _AMENDMENTS = {"10-K": "10-K/A", "20-F": "20-F/A", "10-Q": "10-Q/A"}
+    tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
+
     for ft in form_types:
+        if ft.endswith("/A"):
+            continue
+        amended_ft = _AMENDMENTS.get(ft)
+        if amended_ft and amended_ft in form_types:
+            try:
+                base_filing = comp.get_filings(form=ft, is_xbrl=True).latest()
+                amend_filing = comp.get_filings(form=amended_ft, is_xbrl=True).latest()
+                if (amend_filing and base_filing
+                        and getattr(amend_filing, "filing_date", "") > getattr(base_filing, "filing_date", "")):
+                    logger.info("%s: Using %s (filed after %s)", tkr, amended_ft, ft)
+                    snap = get_single_filing_snapshot(
+                        comp, amended_ft, alerts_config=alerts_config, is_financial=is_financial,
+                    )
+                    if snap.get("metrics"):
+                        return snap
+            except Exception:
+                pass
         snap = get_single_filing_snapshot(
             comp, ft, alerts_config=alerts_config, is_financial=is_financial,
         )

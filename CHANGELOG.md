@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.2] - 2026-04-17
+
+### Financial Accuracy
+- **Net Debt/EBITDA consistency**: Ratio numerator now uses financial debt only (short-term + long-term debt minus cash/investments), excluding lease liabilities. Standard EBITDA doesn't add back lease expense, so including leases in the numerator was inconsistent.
+- **Amendment preference**: `get_filing_snapshot_with_fallback` now checks if an amended filing (10-K/A, 20-F/A, 10-Q/A) was filed more recently than the base filing, and uses the amendment since it supersedes the original.
+
+### Pipeline Fixes
+- **Dropped metrics in model**: Added 8 metrics to `_METRICS_KEY_TO_FIELD` and `SnapshotMetrics` that were computed by `metrics.py` but never serialized: Quick Ratio, Cash Ratio, Debt/Total Capital, Cash Flow Coverage, Fixed Charge Coverage, Accruals Ratio, Earnings Quality, Sloan Accrual.
+- **JSON round-trip NaN**: `SnapshotMetrics.from_dict()` now coerces `None` values back to `NaN` (JSON serializes `NaN` → `null` → `None`; previously `None` was stored as-is, breaking downstream float math).
+- **`AnalysisResult.from_json_dict()`**: New classmethod for reconstructing an `AnalysisResult` from the dict produced by `to_json_dict()`, completing the serialization round-trip.
+
+### Testing
+- Added dropped-metrics presence and round-trip tests (3 tests).
+- Added JSON NaN→None→NaN round-trip tests (3 tests).
+- Added `AnalysisResult.from_json_dict()` round-trip tests (3 tests).
+- Added Net Debt/EBITDA lease-exclusion consistency test.
+- Added amendment preference tests (newer amendment, older amendment, no amendment) (3 tests).
+- Updated Net Debt/EBITDA existing test for financial-debt-only numerator.
+- Test count: 377 → 390 (+13 tests).
+
 ## [1.0.1] - 2026-04-17
 
 ### XBRL Coverage (High Priority)

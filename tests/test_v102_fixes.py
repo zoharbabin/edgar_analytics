@@ -1,0 +1,238 @@
+"""tests/test_v102_fixes.py — regression tests for v1.0.2 audit fixes."""
+
+import json
+import math
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from edgar_analytics.models import (
+    AnalysisResult,
+    TickerAnalysis,
+    FilingSnapshot,
+    SnapshotMetrics,
+    _METRICS_KEY_TO_FIELD,
+    _sanitize_for_json,
+)
+from edgar_analytics.metrics import (
+    compute_ratios_and_metrics,
+    get_filing_snapshot_with_fallback,
+)
+
+
+class TestDroppedMetricsInModel:
+    """Agent 2 #1: _METRICS_KEY_TO_FIELD must include all computed metrics."""
+
+    EXPECTED_KEYS = [
+        "Quick Ratio", "Cash Ratio", "Debt/Total Capital",
+        "Cash Flow Coverage", "Fixed Charge Coverage",
+        "Accruals Ratio", "Earnings Quality", "Sloan Accrual",
+    ]
+
+    def test_all_expected_keys_present(self):
+        for key in self.EXPECTED_KEYS:
+            assert key in _METRICS_KEY_TO_FIELD, f"{key} missing from _METRICS_KEY_TO_FIELD"
+
+    def test_snapshot_metrics_has_fields(self):
+        sm = SnapshotMetrics()
+        for key in self.EXPECTED_KEYS:
+            field_name = _METRICS_KEY_TO_FIELD[key]
+            assert hasattr(sm, field_name), f"SnapshotMetrics missing field {field_name}"
+
+    def test_round_trip_preserves_all_metrics(self):
+        metrics_dict = {}
+        for key in _METRICS_KEY_TO_FIELD:
+            metrics_dict[key] = 42.0
+        metrics_dict["Alerts"] = []
+        metrics_dict["_IdentityCheck"] = ""
+        sm = SnapshotMetrics.from_dict(metrics_dict)
+        back = sm.to_dict()
+        for key in _METRICS_KEY_TO_FIELD:
+            assert key in back, f"{key} lost in round-trip"
+            assert back[key] == pytest.approx(42.0), f"{key} value changed"
+
+
+class TestJsonRoundTrip:
+    """Agent 2 #2: NaN → None → NaN must survive JSON serialization."""
+
+    def test_nan_survives_json(self):
+        sm = SnapshotMetrics(roe_pct=float("nan"), roa_pct=float("nan"))
+        d = sm.to_dict()
+        sanitized = _sanitize_for_json(d)
+        assert sanitized["ROE %"] is None
+        assert sanitized["ROA %"] is None
+        restored = SnapshotMetrics.from_dict(sanitized)
+        assert math.isnan(restored.roe_pct)
+        assert math.isnan(restored.roa_pct)
+
+    def test_none_coerced_to_nan_in_from_dict(self):
+        d = {"ROE %": None, "ROA %": None, "Revenue": 1000}
+        sm = SnapshotMetrics.from_dict(d)
+        assert math.isnan(sm.roe_pct)
+        assert math.isnan(sm.roa_pct)
+        assert sm.revenue == 1000
+
+    def test_inf_sanitized_to_none(self):
+        sm = SnapshotMetrics(current_ratio=float("inf"))
+        d = sm.to_dict()
+        sanitized = _sanitize_for_json(d)
+        assert sanitized["Current Ratio"] is None
+
+
+class TestAnalysisResultFromDict:
+    """Agent 2 #4: AnalysisResult needs a from_json_dict for deserialization."""
+
+    def test_round_trip(self):
+        sm = SnapshotMetrics(revenue=1000, net_income=200)
+        fs = FilingSnapshot(metrics=sm)
+        ta = TickerAnalysis(ticker="TEST", annual_snapshot=fs)
+        ar = AnalysisResult(main_ticker="TEST", tickers={"TEST": ta})
+
+        json_d = ar.to_json_dict()
+        json_str = json.dumps(json_d)
+        restored_d = json.loads(json_str)
+        ar2 = AnalysisResult.from_json_dict(restored_d)
+
+        assert ar2.main_ticker == "TEST"
+        assert ar2.main.annual_snapshot.metrics.revenue == 1000
+        assert ar2.main.annual_snapshot.metrics.net_income == 200
+
+    def test_empty_dict(self):
+        ar = AnalysisResult.from_json_dict({})
+        assert ar.main_ticker == ""
+        assert ar.tickers == {}
+
+    def test_nan_survives_full_round_trip(self):
+        sm = SnapshotMetrics(roe_pct=float("nan"))
+        fs = FilingSnapshot(metrics=sm)
+        ta = TickerAnalysis(ticker="X", annual_snapshot=fs)
+        ar = AnalysisResult(main_ticker="X", tickers={"X": ta})
+
+        json_str = json.dumps(ar.to_json_dict())
+        ar2 = AnalysisResult.from_json_dict(json.loads(json_str))
+        assert math.isnan(ar2.main.annual_snapshot.metrics.roe_pct)
+
+
+class TestNetDebtEbitdaConsistency:
+    """Agent 3 #1: Net Debt/EBITDA should use financial debt only (no leases)."""
+
+    def test_leases_excluded_from_ratio_numerator(self):
+        bal_df = pd.DataFrame({
+            "Value": [10000, 5000, 5000, 500, 2000, 300, 200, 3000]
+        }, index=[
+            "Total assets", "Total liabilities", "Total shareholders' equity",
+            "Short-term debt", "Long-term debt",
+            "Operating lease liabilities", "Finance lease liabilities",
+            "Cash and cash equivalents",
+        ])
+        inc_df = pd.DataFrame({
+            "Value": [5000, -2000, -500, 1000, 200, 100, 300]
+        }, index=[
+            "Net sales", "Cost of sales", "Operating expenses",
+            "Net income", "Depreciation and amortization",
+            "Interest expense", "Income tax expense",
+        ])
+        cf_df = pd.DataFrame({
+            "Value": [1500, -400]
+        }, index=[
+            "Cash generated by operating activities",
+            "Capital Expenditures",
+        ])
+        metrics = compute_ratios_and_metrics(bal_df, inc_df, cf_df)
+
+        # financial_net_debt = 500 + 2000 - 3000 = -500
+        # Net Debt (balance sheet) includes leases = 500 + 2000 + 300 + 200 - 3000 = 0
+        assert metrics["Net Debt"] == pytest.approx(0.0)
+        financial_nd = 500 + 2000 - 3000
+        ebitda_std = metrics["EBITDA (standard)"]
+        assert ebitda_std > 0
+        assert metrics["Net Debt/EBITDA"] == pytest.approx(financial_nd / ebitda_std, abs=1e-3)
+
+
+class TestAmendmentPreference:
+    """Agent 1 #1: Amended filings (10-K/A) should supersede base (10-K)."""
+
+    def test_amendment_preferred_when_newer(self):
+        mock_comp = MagicMock()
+        mock_comp.tickers = ["TEST"]
+
+        base_filing = MagicMock()
+        base_filing.filing_date = "2024-03-01"
+        amend_filing = MagicMock()
+        amend_filing.filing_date = "2024-06-15"
+
+        def get_filings_side_effect(form=None, is_xbrl=True):
+            result = MagicMock()
+            if form == "10-K":
+                result.latest.return_value = base_filing
+            elif form == "10-K/A":
+                result.latest.return_value = amend_filing
+            else:
+                result.latest.return_value = None
+            return result
+
+        mock_comp.get_filings.side_effect = get_filings_side_effect
+
+        with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
+            mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
+            result = get_filing_snapshot_with_fallback(
+                mock_comp, ("10-K", "10-K/A"), alerts_config=None,
+            )
+            call_args = mock_snap.call_args
+            assert call_args[0][1] == "10-K/A"
+
+    def test_base_used_when_amendment_older(self):
+        mock_comp = MagicMock()
+        mock_comp.tickers = ["TEST"]
+
+        base_filing = MagicMock()
+        base_filing.filing_date = "2024-03-01"
+        amend_filing = MagicMock()
+        amend_filing.filing_date = "2023-06-15"
+
+        def get_filings_side_effect(form=None, is_xbrl=True):
+            result = MagicMock()
+            if form == "10-K":
+                result.latest.return_value = base_filing
+            elif form == "10-K/A":
+                result.latest.return_value = amend_filing
+            else:
+                result.latest.return_value = None
+            return result
+
+        mock_comp.get_filings.side_effect = get_filings_side_effect
+
+        with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
+            mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
+            result = get_filing_snapshot_with_fallback(
+                mock_comp, ("10-K", "10-K/A"), alerts_config=None,
+            )
+            call_args = mock_snap.call_args
+            assert call_args[0][1] == "10-K"
+
+    def test_base_used_when_no_amendment_exists(self):
+        mock_comp = MagicMock()
+        mock_comp.tickers = ["TEST"]
+
+        base_filing = MagicMock()
+        base_filing.filing_date = "2024-03-01"
+
+        def get_filings_side_effect(form=None, is_xbrl=True):
+            result = MagicMock()
+            if form == "10-K":
+                result.latest.return_value = base_filing
+            else:
+                result.latest.return_value = None
+            return result
+
+        mock_comp.get_filings.side_effect = get_filings_side_effect
+
+        with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
+            mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
+            result = get_filing_snapshot_with_fallback(
+                mock_comp, ("10-K", "10-K/A"), alerts_config=None,
+            )
+            call_args = mock_snap.call_args
+            assert call_args[0][1] == "10-K"

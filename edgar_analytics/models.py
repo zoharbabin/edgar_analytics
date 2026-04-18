@@ -50,10 +50,15 @@ _METRICS_KEY_TO_FIELD = {
     "EBIT (approx)": "ebit_approx",
     "EBITDA (approx)": "ebitda_approx",
     "Current Ratio": "current_ratio",
+    "Quick Ratio": "quick_ratio",
+    "Cash Ratio": "cash_ratio",
     "Debt-to-Equity": "debt_to_equity",
+    "Debt/Total Capital": "debt_to_total_capital",
     "Equity Ratio %": "equity_ratio_pct",
     "Cash from Operations": "cash_from_operations",
     "Free Cash Flow": "free_cash_flow",
+    "Cash Flow Coverage": "cash_flow_coverage",
+    "Fixed Charge Coverage": "fixed_charge_coverage",
     "ROE %": "roe_pct",
     "ROA %": "roa_pct",
     "Intangible Ratio %": "intangible_ratio_pct",
@@ -67,6 +72,9 @@ _METRICS_KEY_TO_FIELD = {
     "EBIT (standard)": "ebit_standard",
     "EBITDA (standard)": "ebitda_standard",
     "Interest Coverage": "interest_coverage",
+    "Accruals Ratio": "accruals_ratio",
+    "Earnings Quality": "earnings_quality",
+    "Sloan Accrual": "sloan_accrual",
 }
 _METRICS_FIELD_TO_KEY = {v: k for k, v in _METRICS_KEY_TO_FIELD.items()}
 
@@ -193,10 +201,15 @@ class SnapshotMetrics:
     ebit_approx: float = 0.0
     ebitda_approx: float = 0.0
     current_ratio: float = _NAN
+    quick_ratio: float = _NAN
+    cash_ratio: float = _NAN
     debt_to_equity: float = _NAN
+    debt_to_total_capital: float = _NAN
     equity_ratio_pct: float = _NAN
     cash_from_operations: float = 0.0
     free_cash_flow: float = 0.0
+    cash_flow_coverage: float = _NAN
+    fixed_charge_coverage: float = _NAN
     roe_pct: float = _NAN
     roa_pct: float = _NAN
     intangible_ratio_pct: float = _NAN
@@ -210,6 +223,9 @@ class SnapshotMetrics:
     ebit_standard: float = 0.0
     ebitda_standard: float = 0.0
     interest_coverage: float = _NAN
+    accruals_ratio: float = _NAN
+    earnings_quality: float = _NAN
+    sloan_accrual: float = _NAN
     alerts: Tuple[str, ...] = ()
     identity_check: str = ""
     scores: Optional[ScoresResult] = None
@@ -221,7 +237,8 @@ class SnapshotMetrics:
         kwargs: dict = {}
         for dict_key, field_name in _METRICS_KEY_TO_FIELD.items():
             if dict_key in d:
-                kwargs[field_name] = d[dict_key]
+                val = d[dict_key]
+                kwargs[field_name] = _NAN if val is None else val
         raw_alerts = d.get("Alerts", [])
         kwargs["alerts"] = tuple(raw_alerts) if isinstance(raw_alerts, list) else raw_alerts
         kwargs["identity_check"] = d.get("_IdentityCheck", "")
@@ -389,6 +406,15 @@ class AnalysisResult:
     def peers(self) -> Dict[str, TickerAnalysis]:
         """Peer tickers' analyses (excluding main)."""
         return {k: v for k, v in self.tickers.items() if k != self.main_ticker}
+
+    @classmethod
+    def from_json_dict(cls, d: dict) -> AnalysisResult:
+        """Reconstruct from the dict produced by ``to_json_dict()``."""
+        main = d.get("main_ticker", "")
+        tickers = {}
+        for t, td in d.get("tickers", {}).items():
+            tickers[t] = TickerAnalysis.from_dict(t, td)
+        return cls(main_ticker=main, tickers=tickers)
 
     def to_json_dict(self) -> dict:
         """Serialize to a JSON-safe dict (NaN/Inf → ``None``)."""
