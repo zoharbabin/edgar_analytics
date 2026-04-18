@@ -2,7 +2,8 @@
 include README.md
 include LICENSE
 
-# Include all files in the "examples" folder
+# Include all files in the "docs" and "examples" folders
+recursive-include docs *
 recursive-include examples *
 
 # Optionally include tests if you want them in the sdist

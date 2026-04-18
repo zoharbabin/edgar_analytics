@@ -22,6 +22,8 @@ df = result.to_dataframe()  # One row per ticker
 
 ---
 
+> **New to the library?** See the **[User Guide](docs/USER_GUIDE.md)** for real-world workflows, scoring model interpretation, and practical recipes.
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Features](#features)
