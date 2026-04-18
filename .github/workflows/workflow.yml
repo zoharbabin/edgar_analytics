@@ -70,9 +70,11 @@ jobs:
         run: mkdir -p /home/runner/.edgar
 
       - name: Run integration tests
-        run: pytest -m integration --run-integration --maxfail=3 -v --timeout=120
+        run: pytest -m integration --run-integration --maxfail=3 -v --timeout=300
         env:
           EDGAR_IDENTITY: "edgar-analytics-ci <edgar-analytics@users.noreply.github.com>"
+          SEC_REQUEST_DELAY: "1.5"
+          SEC_MAX_RETRIES: "4"
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')

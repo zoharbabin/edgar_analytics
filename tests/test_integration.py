@@ -10,6 +10,7 @@ unit tests with mocks cannot detect.
 """
 
 import os
+import time
 import pytest
 import pandas as pd
 
@@ -26,6 +27,38 @@ from edgar_analytics.multi_period_analysis import (
     analyze_quarterly_balance_sheets,
 )
 from edgar_analytics.forecasting import forecast_revenue
+
+SEC_REQUEST_DELAY = float(os.environ.get("SEC_REQUEST_DELAY", "1.2"))
+SEC_MAX_RETRIES = int(os.environ.get("SEC_MAX_RETRIES", "4"))
+
+
+def _with_sec_retry(fn, *args, **kwargs):
+    """Retry a callable that hits the SEC API, with exponential backoff on 403/429/503."""
+    last_exc = None
+    for attempt in range(SEC_MAX_RETRIES):
+        try:
+            time.sleep(SEC_REQUEST_DELAY)
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            exc_str = str(exc)
+            if any(code in exc_str for code in ("403", "429", "503")):
+                last_exc = exc
+                wait = 2 ** attempt * 2
+                print(f"SEC {exc_str[:60]}... retry {attempt + 1}/{SEC_MAX_RETRIES} in {wait}s")
+                time.sleep(wait)
+                continue
+            raise
+    pytest.skip(f"SEC API unavailable after {SEC_MAX_RETRIES} retries: {last_exc}")
+
+
+def sec_company(ticker: str) -> Company:
+    """Create and warm an edgar.Company, retrying on SEC rate-limit/block."""
+    def _create():
+        comp = Company(ticker)
+        # Force lazy data load so 403 surfaces here, not mid-assertion
+        _ = comp.name
+        return comp
+    return _with_sec_retry(_create)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -44,8 +77,8 @@ class TestSingleFilingSnapshot:
     """Test fetching a single filing for a well-known US GAAP filer."""
 
     def test_aapl_10k_snapshot(self):
-        comp = Company("AAPL")
-        snap = get_single_filing_snapshot(comp, "10-K")
+        comp = sec_company("AAPL")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K")
 
         assert snap["metrics"], "AAPL 10-K should produce metrics"
         m = snap["metrics"]
@@ -61,15 +94,15 @@ class TestSingleFilingSnapshot:
         assert info["form_type"] == "10-K"
 
     def test_aapl_10q_snapshot(self):
-        comp = Company("AAPL")
-        snap = get_single_filing_snapshot(comp, "10-Q")
+        comp = sec_company("AAPL")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-Q")
 
         assert snap["metrics"], "AAPL 10-Q should produce metrics"
         assert snap["metrics"]["Revenue"] > 0
 
     def test_annual_fallback_us_filer(self):
-        comp = Company("AAPL")
-        snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        comp = sec_company("AAPL")
+        snap = _with_sec_retry(get_filing_snapshot_with_fallback, comp, ANNUAL_FORM_TYPES)
         assert snap["metrics"], "Fallback should find 10-K for AAPL"
         assert snap["filing_info"]["form_type"] == "10-K"
 
@@ -77,7 +110,7 @@ class TestSingleFilingSnapshot:
 class TestMultiPeriodAnalysis:
 
     def test_retrieve_multi_year_data_aapl(self):
-        data = retrieve_multi_year_data("AAPL", n_years=2, n_quarters=4)
+        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=2, n_quarters=4)
 
         assert "annual_data" in data
         assert "quarterly_data" in data
@@ -90,8 +123,8 @@ class TestMultiPeriodAnalysis:
         assert "Operating Income" in data["annual_data"]
 
     def test_quarterly_balance_sheets_aapl(self):
-        comp = Company("AAPL")
-        results = analyze_quarterly_balance_sheets(comp, n_quarters=4)
+        comp = sec_company("AAPL")
+        results = _with_sec_retry(analyze_quarterly_balance_sheets, comp, n_quarters=4)
 
         assert "free_cf" in results
         assert len(results["free_cf"]) >= 1, "Should have at least 1 quarter of FCF"
@@ -100,7 +133,7 @@ class TestMultiPeriodAnalysis:
 class TestForecasting:
 
     def test_forecast_from_real_data(self):
-        data = retrieve_multi_year_data("AAPL", n_years=5, n_quarters=4)
+        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=5, n_quarters=4)
         rev_annual = data["annual_data"].get("Revenue", {})
 
         if len(rev_annual) >= 6:
@@ -113,8 +146,8 @@ class TestIFRSFiler:
     """Test an IFRS filer that files 20-F (e.g., Unilever)."""
 
     def test_ul_20f_snapshot(self):
-        comp = Company("UL")
-        snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        comp = sec_company("UL")
+        snap = _with_sec_retry(get_filing_snapshot_with_fallback, comp, ANNUAL_FORM_TYPES)
         m = snap.get("metrics", {})
         if not m:
             pytest.skip("UL filing not available")
@@ -127,8 +160,8 @@ class TestBankFiler:
     """Test a bank with different statement structure (JPMorgan)."""
 
     def test_jpm_10k_snapshot(self):
-        comp = Company("JPM")
-        snap = get_single_filing_snapshot(comp, "10-K")
+        comp = sec_company("JPM")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K")
         m = snap.get("metrics", {})
         if not m:
             pytest.skip("JPM filing not available")
@@ -138,8 +171,8 @@ class TestBankFiler:
         assert isinstance(m.get("Alerts"), list)
 
     def test_jpm_quality_ratios(self):
-        comp = Company("JPM")
-        snap = get_single_filing_snapshot(comp, "10-K")
+        comp = sec_company("JPM")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K")
         m = snap.get("metrics", {})
         if not m:
             pytest.skip("JPM filing not available")
@@ -157,11 +190,11 @@ class TestAmendedFiling:
 
     def test_real_amended_filing_fetch(self):
         """Fetch a company known to have filed 10-K/A and verify data is returned."""
-        comp = Company("AAPL")
-        filings = comp.get_filings(form="10-K/A", is_xbrl=True)
+        comp = sec_company("AAPL")
+        filings = _with_sec_retry(comp.get_filings, form="10-K/A", is_xbrl=True)
         if filings is None or len(filings) == 0:
             pytest.skip("No 10-K/A filings available for AAPL")
-        snap = get_single_filing_snapshot(comp, "10-K/A")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K/A")
         m = snap.get("metrics", {})
         if not m:
             pytest.skip("10-K/A filing has no parseable metrics")
@@ -174,8 +207,8 @@ class TestSmallCapFiler:
 
     def test_small_cap_snapshot(self):
         """Small-cap filer should return metrics without crashing on missing line items."""
-        comp = Company("SIRI")
-        snap = get_filing_snapshot_with_fallback(comp, ANNUAL_FORM_TYPES)
+        comp = sec_company("SIRI")
+        snap = _with_sec_retry(get_filing_snapshot_with_fallback, comp, ANNUAL_FORM_TYPES)
         m = snap.get("metrics", {})
         if not m:
             pytest.skip("SIRI filing not available")
@@ -184,7 +217,7 @@ class TestSmallCapFiler:
 
     def test_small_cap_multi_year(self):
         """Multi-year retrieval on small-cap should not crash even with sparse data."""
-        data = retrieve_multi_year_data("SIRI", n_years=2, n_quarters=4)
+        data = _with_sec_retry(retrieve_multi_year_data, "SIRI", n_years=2, n_quarters=4)
         assert "annual_data" in data
         assert "quarterly_data" in data
 
@@ -193,8 +226,8 @@ class TestMetricsConsistency:
     """Sanity checks on metric relationships."""
 
     def test_balance_sheet_identity(self):
-        comp = Company("AAPL")
-        snap = get_single_filing_snapshot(comp, "10-K")
+        comp = sec_company("AAPL")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K")
         m = snap["metrics"]
 
         if m.get("Revenue") and m.get("Net Income"):
@@ -203,8 +236,8 @@ class TestMetricsConsistency:
             assert margin == pytest.approx(expected, abs=0.01)
 
     def test_fcf_is_opcf_minus_capex(self):
-        comp = Company("AAPL")
-        snap = get_single_filing_snapshot(comp, "10-K")
+        comp = sec_company("AAPL")
+        snap = _with_sec_retry(get_single_filing_snapshot, comp, "10-K")
         m = snap["metrics"]
 
         opcf = m.get("Cash from Operations", 0)
@@ -220,7 +253,7 @@ class TestSynonymCoverage:
         from edgar_analytics.company_facts import CompanyFactsClient
 
         client = CompanyFactsClient()
-        facts = client.fetch("AAPL")
+        facts = _with_sec_retry(client.fetch, "AAPL")
         if facts is None:
             pytest.skip("CompanyFacts API unavailable")
 
