@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.4] - 2026-04-18
+
+### Fixes
+- **Resource leak in `analyze()`**: Top-level convenience function now uses `with TickerOrchestrator() as orch:` so the disk cache is always closed, even on exceptions.
+- **Redundant SEC API call**: `retrieve_multi_year_data()` now accepts an optional `comp` parameter. The orchestrator passes its existing `Company` object, eliminating a redundant `Company(ticker)` instantiation per ticker.
+- **Dead code removal**: `_get_financial_statement()` no longer tries a non-existent `get_*` method before falling back to the property-based API that edgartools actually provides.
+
+### Dependencies
+- **rich**: Ceiling bumped `<15` → `<16` (rich 15.0.0 released).
+- **yfinance**: Ceiling bumped `<1` → `<2` (yfinance 1.3.0 released).
+- **pyarrow**: Ceiling bumped `<18` → `<24` (pyarrow 23.0.1 released).
+
+### CI
+- **Lint and typecheck enforced**: Removed `continue-on-error: true` from ruff and mypy CI steps. Fixed all 65 pre-existing ruff errors and 25+ mypy errors across 27 files so enforcement wouldn't break the build.
+
+### Documentation
+- **`docs/ARCHITECTURE.md`** (new): Data pipeline design — why the hybrid approach (synonym matching + CompanyFacts cross-validation) is stronger than either leg alone.
+- **`docs/METRICS_REFERENCE.md`** (new): Complete reference for 79 extracted concepts, 42 derived metrics, and 7 scoring models — each with formula, business use case, and interpretation guidance.
+- **`docs/USER_GUIDE.md`** (new): Real-world workflows (earnings prep, stock screening, due diligence, factor research, portfolio monitoring), scoring model interpretation with thresholds, and alert tuning.
+- **README.md**: Updated for v1.0.4 features with cross-links to all docs.
+- **CONTRIBUTING.md**: Added pointer to architecture doc.
+
+### Testing
+- Removed obsolete `test_get_financial_statement_old_api` (tested dead code path).
+- Updated mock setups in `test_multi_period_analysis.py` and `test_cli.py` to use property-style attributes matching actual edgartools API.
+- Test count: 401 → 399 (−2 tests: 1 dead-code test removed, 1 redundant).
+
 ## [1.0.3] - 2026-04-17
 
 ### Security
