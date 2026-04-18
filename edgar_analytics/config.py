@@ -18,6 +18,6 @@ ALERTS_CONFIG: Dict[str, Any] = {
 def get_alerts_config(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Return alerts config merged with optional user overrides."""
     if not overrides:
-        return ALERTS_CONFIG
+        return ALERTS_CONFIG.copy()
     merged = {**ALERTS_CONFIG, **overrides}
     return merged

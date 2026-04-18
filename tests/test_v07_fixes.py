@@ -144,6 +144,23 @@ class TestBeneishGMIFix:
         )
         assert bm.indices["GMI"] == pytest.approx(1.0)
 
+    def test_gmi_high_when_current_gm_negative(self):
+        """Margin going from +30% to -5% should produce very high GMI."""
+        bm = BeneishMScore.compute(
+            revenue=1000, revenue_prev=900,
+            receivables=100, receivables_prev=85,
+            gross_margin_pct=-5.0, gross_margin_pct_prev=30.0,
+            total_assets=5000, total_assets_prev=4500,
+            current_assets=1500, current_assets_prev=1300,
+            current_liabilities=800, current_liabilities_prev=700,
+            long_term_debt=1200, long_term_debt_prev=1100,
+            depreciation_rate=0.10, depreciation_rate_prev=0.10,
+            sga_pct=0.15, sga_pct_prev=0.15,
+            operating_cf=200, net_income=150,
+            ppe=2000, ppe_prev=1800,
+        )
+        assert bm.indices["GMI"] > 100, "GMI should be very high when margin drops to negative"
+
 
 class TestDuPontNegativeEquity:
     """S-FA2: DuPont ROE should be NaN when equity is negative."""
@@ -210,7 +227,7 @@ class TestVersionAttribute:
         import edgar_analytics
         assert hasattr(edgar_analytics, "__version__")
         assert isinstance(edgar_analytics.__version__, str)
-        assert edgar_analytics.__version__ == "0.9.1"
+        assert edgar_analytics.__version__ == "1.0.0"
 
 
 class TestReducedPublicSurface:

@@ -19,6 +19,10 @@ SYNONYMS = {
         "us-gaap_RevenueFromContractWithCustomerIncludingAssessedTax",
         "us-gaap:SalesRevenueNet",
         "us-gaap_SalesRevenueNet",
+        "us-gaap:SalesRevenueGoodsNet",
+        "us-gaap_SalesRevenueGoodsNet",
+        "us-gaap:SalesRevenueServicesNet",
+        "us-gaap_SalesRevenueServicesNet",
         "us-gaap:Revenues",
         "us-gaap_Revenues",
         # IFRS
@@ -496,6 +500,10 @@ SYNONYMS = {
     #   SHORT-TERM DEBT
     # ======================
     "short_term_debt": [
+        "us-gaap:ShortTermBorrowings",
+        "us-gaap_ShortTermBorrowings",
+        "us-gaap:LongTermDebtCurrent",
+        "us-gaap_LongTermDebtCurrent",
         "us-gaap_CommercialPaper",
         "Commercial paper",
         "LineOfCreditFacility",
@@ -503,6 +511,8 @@ SYNONYMS = {
         "ifrs-full:BorrowingsCurrent",
         # Common textual
         "Short-term debt",
+        "Short-term borrowings",
+        "Current portion of long-term debt",
     ],
 
     # ======================
@@ -615,6 +625,35 @@ SYNONYMS = {
         # Common textual
         "Retained earnings",
         "Accumulated deficit",
+    ],
+
+    # ======================
+    #  PREFERRED STOCK
+    # ======================
+    "preferred_stock": [
+        "us-gaap:PreferredStockValue",
+        "us-gaap_PreferredStockValue",
+        "us-gaap:RedeemablePreferredStockCarryingAmount",
+        # IFRS
+        "ifrs-full:PreferenceShareCapital",
+        # Common textual
+        "Preferred stock",
+        "Redeemable preferred stock",
+    ],
+
+    # ======================
+    #  MINORITY INTEREST
+    # ======================
+    "minority_interest": [
+        "us-gaap:MinorityInterest",
+        "us-gaap_MinorityInterest",
+        "us-gaap:RedeemableNoncontrollingInterestEquityCarryingAmount",
+        # IFRS
+        "ifrs-full:NonControllingInterests",
+        # Common textual
+        "Noncontrolling interests",
+        "Minority interest",
+        "Noncontrolling interest",
     ],
 
     # ======================

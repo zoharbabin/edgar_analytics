@@ -109,6 +109,37 @@ class TestSynonymsIntegrity:
             "Missing LongTermDebtNoncurrent"
         )
 
+    def test_short_term_debt_includes_short_term_borrowings(self):
+        tags = SYNONYMS["short_term_debt"]
+        assert any("ShortTermBorrowings" in t for t in tags), (
+            "Missing ShortTermBorrowings"
+        )
+
+    def test_short_term_debt_includes_ltd_current(self):
+        tags = SYNONYMS["short_term_debt"]
+        assert any("LongTermDebtCurrent" in t for t in tags), (
+            "Missing LongTermDebtCurrent (current portion of LTD)"
+        )
+
+    def test_revenue_includes_pre_asc606_tags(self):
+        tags = SYNONYMS["revenue"]
+        assert any("SalesRevenueGoodsNet" in t for t in tags), (
+            "Missing SalesRevenueGoodsNet (pre-ASC 606)"
+        )
+        assert any("SalesRevenueServicesNet" in t for t in tags), (
+            "Missing SalesRevenueServicesNet (pre-ASC 606)"
+        )
+
+    def test_preferred_stock_synonyms_exist(self):
+        assert "preferred_stock" in SYNONYMS
+        tags = SYNONYMS["preferred_stock"]
+        assert any("PreferredStock" in t for t in tags)
+
+    def test_minority_interest_synonyms_exist(self):
+        assert "minority_interest" in SYNONYMS
+        tags = SYNONYMS["minority_interest"]
+        assert any("MinorityInterest" in t or "NonControlling" in t for t in tags)
+
     def test_sales_marketing_in_expense_labels(self):
         """sales_marketing is in _EXPENSE_LABELS for correct sign-flipping."""
         from edgar_analytics.synonyms_utils import _EXPENSE_LABELS

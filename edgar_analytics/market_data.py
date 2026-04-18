@@ -93,6 +93,9 @@ def compute_valuation_ratios(
     short_debt = metrics.get("_short_term_debt", 0.0)
     long_debt = metrics.get("_long_term_debt", 0.0)
     cash = metrics.get("_cash_equivalents", 0.0)
+    st_investments = metrics.get("_short_term_investments", 0.0)
+    preferred = metrics.get("_preferred_stock", 0.0)
+    minority = metrics.get("_minority_interest", 0.0)
 
     scores = metrics.get("_scores", {})
     per_share = scores.get("per_share", None)
@@ -108,9 +111,10 @@ def compute_valuation_ratios(
         not math.isnan(market_cap) and total_equity > 0
     ) else _NAN
 
+    # EV = Market Cap + Total Debt + Preferred Stock + Minority Interest - Cash & Equivalents - ST Investments
     ev = _NAN
     if not math.isnan(market_cap):
-        ev = market_cap + short_debt + long_debt - cash
+        ev = market_cap + short_debt + long_debt + preferred + minority - cash - st_investments
     ev_ebitda = (ev / ebitda) if (
         not math.isnan(ev) and not math.isnan(ebitda) and ebitda > 0
     ) else _NAN

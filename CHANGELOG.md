@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.0] - 2026-04-17
+
+### XBRL Coverage (High Priority)
+- **Short-term debt synonyms**: Added `ShortTermBorrowings` and `LongTermDebtCurrent` (current portion of long-term debt) to `short_term_debt`. Many filers use these tags exclusively — their absence systematically understated short-term debt, corrupting Current Ratio, Net Debt, D/E, and Altman Z working capital.
+- **Pre-ASC 606 revenue**: Added `SalesRevenueGoodsNet` and `SalesRevenueServicesNet` to `revenue`. Historical multi-year analysis (pre-2018 filings) missed revenue for filers using these legacy GAAP tags.
+- **Preferred stock & minority interest synonyms**: New `preferred_stock` and `minority_interest` synonym groups for EV computation.
+
+### Financial Accuracy
+- **Beneish GMI negative margin**: When gross margin drops from positive to negative (e.g., +30% → -5%), GMI now correctly signals high manipulation risk. Previously, the `gm > 0` check caused the code to use a floor divisor only for zero margins; negative margins now also produce a high GMI proportional to the margin decline.
+- **EV/EBITDA formula**: Enterprise Value now includes preferred stock and minority interest, and subtracts short-term investments alongside cash equivalents. Previously EV was understated for companies with preferred stock (banks, BRK) and inconsistent with the net debt treatment of short-term investments.
+
+### Pipeline Fixes
+- **Mutable global config**: `get_alerts_config()` now returns `.copy()` of `ALERTS_CONFIG` when no overrides are provided. Previously returned the mutable global dict by reference — any caller mutating the result would corrupt defaults for the process lifetime.
+
+### Testing
+- Added short-term debt synonym tests (ShortTermBorrowings, LongTermDebtCurrent present).
+- Added pre-ASC 606 revenue synonym tests (SalesRevenueGoodsNet, SalesRevenueServicesNet).
+- Added preferred stock and minority interest synonym existence tests.
+- Added Beneish GMI negative-margin test (+30% → -5% produces high GMI).
+- Added EV/EBITDA tests (preferred stock, minority interest, ST investments in EV).
+- Added mutable config mutation-safety test.
+- Updated config no-override test (returns copy, not reference).
+- Test count: 360 → 369 (+9 tests).
+
 ## [0.9.1] - 2026-04-17
 
 ### Engineering

@@ -454,12 +454,16 @@ class BeneishMScore:
         dsri = (recv_rev / recv_rev_prev) if recv_rev_prev else 1.0
 
         # GMI — Gross Margin Index
+        # Per Beneish (1999): GMI = GM_prev / GM_current.
+        # GMI > 1 signals margin deterioration (manipulation red flag).
+        # When current margin is zero or negative, use a floor divisor to
+        # produce a high GMI rather than division-by-zero or sign inversion.
         gm = gross_margin_pct / 100.0
         gm_prev = gross_margin_pct_prev / 100.0
         if gm > 0:
             gmi = gm_prev / gm
-        elif gm_prev > 0:
-            gmi = gm_prev / 0.001
+        elif gm_prev > gm:
+            gmi = (gm_prev - gm) / 0.001
         else:
             gmi = 1.0
 

@@ -19,7 +19,8 @@ class TestAlertsConfig:
 
     def test_get_alerts_config_without_overrides(self):
         result = get_alerts_config(None)
-        assert result is ALERTS_CONFIG
+        assert result == ALERTS_CONFIG
+        assert result is not ALERTS_CONFIG
 
     def test_get_alerts_config_with_overrides(self):
         result = get_alerts_config({"HIGH_LEVERAGE": 10.0})
@@ -30,3 +31,9 @@ class TestAlertsConfig:
         original = ALERTS_CONFIG["HIGH_LEVERAGE"]
         get_alerts_config({"HIGH_LEVERAGE": 999})
         assert ALERTS_CONFIG["HIGH_LEVERAGE"] == original
+
+    def test_no_override_returns_copy_not_reference(self):
+        """Mutating the returned dict must not corrupt the global defaults."""
+        cfg = get_alerts_config(None)
+        cfg["HIGH_LEVERAGE"] = 999
+        assert ALERTS_CONFIG["HIGH_LEVERAGE"] == 3.0

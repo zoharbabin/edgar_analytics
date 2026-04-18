@@ -280,6 +280,8 @@ def compute_ratios_and_metrics(
     metrics["_long_term_investments"] = lt_invest_val
     metrics["_capex"] = capex_val
     metrics["_income_before_taxes"] = income_before_taxes if pd.notna(income_before_taxes) else net_income + income_tax_val
+    metrics["_preferred_stock"] = find_synonym_value(balance_df, SYNONYMS["preferred_stock"], 0.0, "BS->Preferred")
+    metrics["_minority_interest"] = find_synonym_value(balance_df, SYNONYMS["minority_interest"], 0.0, "BS->Minority")
 
     # ========== ACCOUNTING IDENTITY VALIDATION ==========
     identity_check = _validate_accounting_identity(total_assets, total_liabs, total_equity)

@@ -74,6 +74,9 @@ class TestValuationRatios:
             "_short_term_debt": 50_000,
             "_long_term_debt": 200_000,
             "_cash_equivalents": 100_000,
+            "_short_term_investments": 0,
+            "_preferred_stock": 0,
+            "_minority_interest": 0,
             "_scores": {
                 "per_share": PerShareMetrics(eps_diluted=eps_diluted),
             },
@@ -115,3 +118,19 @@ class TestValuationRatios:
     def test_nan_pb_when_negative_equity(self):
         v = compute_valuation_ratios(1_000_000, 175.0, self._metrics(**{"_total_equity": -100_000}))
         assert math.isnan(v.pb_ratio)
+
+    def test_ev_includes_preferred_and_minority(self):
+        v = compute_valuation_ratios(
+            1_000_000, 175.0,
+            self._metrics(**{"_preferred_stock": 30_000, "_minority_interest": 20_000}),
+        )
+        # EV = 1M + 50k + 200k + 30k + 20k - 100k - 0 = 1_200_000
+        assert v.ev_ebitda == pytest.approx(1_200_000 / 150_000)
+
+    def test_ev_subtracts_st_investments(self):
+        v = compute_valuation_ratios(
+            1_000_000, 175.0,
+            self._metrics(**{"_short_term_investments": 40_000}),
+        )
+        # EV = 1M + 50k + 200k + 0 + 0 - 100k - 40k = 1_110_000
+        assert v.ev_ebitda == pytest.approx(1_110_000 / 150_000)
