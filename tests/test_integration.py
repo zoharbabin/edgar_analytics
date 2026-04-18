@@ -110,7 +110,8 @@ class TestSingleFilingSnapshot:
 class TestMultiPeriodAnalysis:
 
     def test_retrieve_multi_year_data_aapl(self):
-        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=2, n_quarters=4)
+        comp = sec_company("AAPL")
+        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=2, n_quarters=4, comp=comp)
 
         assert "annual_data" in data
         assert "quarterly_data" in data
@@ -133,7 +134,8 @@ class TestMultiPeriodAnalysis:
 class TestForecasting:
 
     def test_forecast_from_real_data(self):
-        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=5, n_quarters=4)
+        comp = sec_company("AAPL")
+        data = _with_sec_retry(retrieve_multi_year_data, "AAPL", n_years=5, n_quarters=4, comp=comp)
         rev_annual = data["annual_data"].get("Revenue", {})
 
         if len(rev_annual) >= 6:
@@ -217,7 +219,8 @@ class TestSmallCapFiler:
 
     def test_small_cap_multi_year(self):
         """Multi-year retrieval on small-cap should not crash even with sparse data."""
-        data = _with_sec_retry(retrieve_multi_year_data, "SIRI", n_years=2, n_quarters=4)
+        comp = sec_company("SIRI")
+        data = _with_sec_retry(retrieve_multi_year_data, "SIRI", n_years=2, n_quarters=4, comp=comp)
         assert "annual_data" in data
         assert "quarterly_data" in data
 
