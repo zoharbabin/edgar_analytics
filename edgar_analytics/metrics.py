@@ -159,7 +159,7 @@ def compute_ratios_and_metrics(
     total_liabs = find_synonym_value(balance_df, SYNONYMS["total_liabilities"], 0.0, "BS->TotalLiab")
     total_equity = find_synonym_value(balance_df, SYNONYMS["total_equity"], 0.0, "BS->TotalEquity")
 
-    metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs else np.nan
+    metrics["Current Ratio"] = (curr_assets / curr_liabs) if curr_liabs > 0 else np.nan
 
     if total_equity < 0:
         metrics["Debt-to-Equity"] = np.nan
@@ -241,8 +241,8 @@ def compute_ratios_and_metrics(
 
     # ========== EXTENDED LEVERAGE RATIOS ==========
     inventory_val = find_synonym_value(balance_df, SYNONYMS["inventory"], 0.0, "BS->InvQR")
-    metrics["Quick Ratio"] = ((curr_assets - inventory_val) / curr_liabs) if curr_liabs else np.nan
-    metrics["Cash Ratio"] = (cash_equiv_val / curr_liabs) if curr_liabs else np.nan
+    metrics["Quick Ratio"] = ((curr_assets - inventory_val) / curr_liabs) if curr_liabs > 0 else np.nan
+    metrics["Cash Ratio"] = (cash_equiv_val / curr_liabs) if curr_liabs > 0 else np.nan
     total_capital = total_debt + total_equity
     metrics["Debt/Total Capital"] = (total_debt / total_capital) if total_capital > 0 else np.nan
     metrics["Fixed Charge Coverage"] = (

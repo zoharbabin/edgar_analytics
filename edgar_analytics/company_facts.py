@@ -28,17 +28,30 @@ logger = get_logger(__name__)
 _BASE_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 _SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 
-_CONCEPT_MAP: Dict[str, list[str]] = {
+_CONCEPT_MAP: Dict[str, list[tuple[str, list[str]]]] = {
     "Revenue": [
-        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "us-gaap:Revenues",
+        ("Revenue", [
+            "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+            "us-gaap:Revenues",
+        ]),
     ],
-    "Net Income": ["us-gaap:NetIncomeLoss"],
-    "Total assets": ["us-gaap:Assets"],
-    "Total liabilities": ["us-gaap:Liabilities"],
-    "Total shareholders' equity": [
-        "us-gaap:StockholdersEquity",
-        "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    "Net Income": [
+        ("Net Income", [
+            "us-gaap:NetIncomeLoss",
+            "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+        ]),
+    ],
+    "_total_assets": [
+        ("Total Assets", ["us-gaap:Assets"]),
+    ],
+    "_total_liabilities": [
+        ("Total Liabilities", ["us-gaap:Liabilities"]),
+    ],
+    "_total_equity": [
+        ("Total Equity", [
+            "us-gaap:StockholdersEquity",
+            "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        ]),
     ],
 }
 
@@ -125,13 +138,16 @@ class CompanyFactsClient:
             return []
 
         discrepancies = []
-        for metric_key, concepts in _CONCEPT_MAP.items():
+        for metric_key, concept_groups in _CONCEPT_MAP.items():
             local_val = metrics.get(metric_key)
             if local_val is None or local_val == 0:
                 continue
             sec_val = None
-            for concept in concepts:
-                sec_val = self.get_latest_value(facts, concept)
+            for _label, concepts in concept_groups:
+                for concept in concepts:
+                    sec_val = self.get_latest_value(facts, concept)
+                    if sec_val is not None:
+                        break
                 if sec_val is not None:
                     break
             if sec_val is None:

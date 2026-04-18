@@ -140,6 +140,31 @@ class TestSynonymsIntegrity:
         tags = SYNONYMS["minority_interest"]
         assert any("MinorityInterest" in t or "NonControlling" in t for t in tags)
 
+    def test_net_income_includes_common_stockholders_basic(self):
+        tags = SYNONYMS["net_income"]
+        assert any("AvailableToCommonStockholdersBasic" in t for t in tags), (
+            "Missing NetIncomeLossAvailableToCommonStockholdersBasic"
+        )
+
+    def test_net_income_includes_attributable_to_parent(self):
+        tags = SYNONYMS["net_income"]
+        assert any("AttributableToParent" in t for t in tags), (
+            "Missing NetIncomeLossAttributableToParent"
+        )
+        assert any("ProfitLossAttributableToOwnersOfParent" in t for t in tags), (
+            "Missing ifrs-full:ProfitLossAttributableToOwnersOfParent"
+        )
+
+    def test_depreciation_without_depletion(self):
+        tags = SYNONYMS["depreciation_amortization"]
+        has_depletion = any("DepreciationDepletionAndAmortization" in t for t in tags)
+        has_without = any(
+            "DepreciationAndAmortization" in t and "Depletion" not in t
+            for t in tags
+        )
+        assert has_depletion, "Missing DepreciationDepletionAndAmortization"
+        assert has_without, "Missing DepreciationAndAmortization (without Depletion)"
+
     def test_sales_marketing_in_expense_labels(self):
         """sales_marketing is in _EXPENSE_LABELS for correct sign-flipping."""
         from edgar_analytics.synonyms_utils import _EXPENSE_LABELS

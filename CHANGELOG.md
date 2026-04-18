@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.1] - 2026-04-17
+
+### XBRL Coverage (High Priority)
+- **Net income synonyms**: Added `NetIncomeLossAvailableToCommonStockholdersBasic`, `NetIncomeLossAttributableToParent`, and `ifrs-full:ProfitLossAttributableToOwnersOfParent`. Apple, Microsoft, and many large-cap filers use these concepts — net income was 0 for these filings, corrupting ROE, EPS, margins, Piotroski, and Beneish.
+- **D&A without Depletion**: Added `us-gaap:DepreciationAndAmortization` (without "Depletion") to `depreciation_amortization`. Many tech companies use this tag exclusively — D&A was 0, producing wrong EBITDA and Beneish DEPI.
+
+### Financial Accuracy
+- **Current/Quick/Cash Ratio guards**: Changed `if curr_liabs:` to `if curr_liabs > 0:` for all three ratios. Negative current liabilities (rare but possible from reclassifications) previously produced nonsensical negative ratios instead of NaN.
+
+### Pipeline Fixes
+- **CompanyFacts validation keys**: Restructured `_CONCEPT_MAP` so validation keys match actual metrics dict keys (`_total_assets`, `_total_liabilities`, `_total_equity`) instead of display names that never appeared in the dict. Previously 3 of 5 cross-validation checks silently skipped.
+- **Reporting numeric coercion**: `_prepare_dataframe_for_presentation` and `_prepare_dataframe_for_csv` now skip string columns (`_FormType`, `_FilingDate`, `Alerts`) when coercing to numeric. Previously these columns were destroyed (converted to NaN).
+
+### Testing
+- Added net income synonym tests (AvailableToCommonStockholdersBasic, AttributableToParent, IFRS parent attribution).
+- Added D&A synonym test (DepreciationAndAmortization without Depletion).
+- Added negative current liabilities ratio guard test.
+- Added CompanyFacts _total_assets validation + discrepancy tests.
+- Added reporting string column preservation tests (presentation + CSV).
+- Updated CompanyFacts equity fallback test for new `_total_equity` key.
+- Test count: 369 → 377 (+8 tests).
+
 ## [1.0.0] - 2026-04-17
 
 ### XBRL Coverage (High Priority)

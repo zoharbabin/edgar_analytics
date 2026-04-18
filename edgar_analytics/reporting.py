@@ -118,8 +118,10 @@ class ReportingEngine:
             new_order = [main_ticker] + [t for t in all_tickers if t != main_ticker]
             df_summary = df_summary.loc[new_order]
 
+        string_cols = {"_FormType", "_FilingDate", "Alerts"}
         for col in df_summary.columns:
-            df_summary[col] = pd.to_numeric(df_summary[col], errors="coerce")
+            if col not in string_cols:
+                df_summary[col] = pd.to_numeric(df_summary[col], errors="coerce")
 
         numeric_cols = df_summary.select_dtypes(include=["number"]).columns
         for col in numeric_cols:
@@ -151,8 +153,10 @@ class ReportingEngine:
             new_order = [main_ticker] + [t for t in all_tickers if t != main_ticker]
             df_csv = df_csv.loc[new_order]
 
+        string_cols = {"_FormType", "_FilingDate", "Alerts"}
         for col in df_csv.columns:
-            df_csv[col] = pd.to_numeric(df_csv[col], errors="coerce")
+            if col not in string_cols:
+                df_csv[col] = pd.to_numeric(df_csv[col], errors="coerce")
 
         return df_csv
 

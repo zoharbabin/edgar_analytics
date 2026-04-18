@@ -118,9 +118,40 @@ class TestValidateMetricsFallbackConcept:
                 }
             }
         }
-        metrics = {"Total shareholders' equity": 62146000000}
+        metrics = {"_total_equity": 62146000000}
         discrepancies = client.validate_metrics(facts, metrics, ticker="TEST")
         assert discrepancies == []
+
+    def test_total_assets_validated(self, client):
+        """_total_assets key in metrics is matched against us-gaap:Assets."""
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "Assets": {
+                        "units": {"USD": [{"end": "2023-09-30", "val": 352583000000, "form": "10-K"}]}
+                    }
+                }
+            }
+        }
+        metrics = {"_total_assets": 352583000000}
+        discrepancies = client.validate_metrics(facts, metrics, ticker="AAPL")
+        assert discrepancies == []
+
+    def test_total_assets_discrepancy(self, client):
+        """_total_assets mismatch should be caught now."""
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "Assets": {
+                        "units": {"USD": [{"end": "2023-09-30", "val": 352583000000, "form": "10-K"}]}
+                    }
+                }
+            }
+        }
+        metrics = {"_total_assets": 200000000000}
+        discrepancies = client.validate_metrics(facts, metrics, ticker="AAPL")
+        assert len(discrepancies) == 1
+        assert "_total_assets" in discrepancies[0]
 
 
 class TestRetryBackoff:

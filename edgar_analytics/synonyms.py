@@ -191,6 +191,8 @@ SYNONYMS = {
     "depreciation_amortization": [
         "us-gaap:DepreciationDepletionAndAmortization",
         "us-gaap_DepreciationDepletionAndAmortization",
+        "us-gaap:DepreciationAndAmortization",
+        "us-gaap_DepreciationAndAmortization",
         # IFRS
         "ifrs-full:DepreciationAndAmortisationExpense",
         # Common textual labels
@@ -224,11 +226,17 @@ SYNONYMS = {
     "net_income": [
         "us-gaap:NetIncomeLoss",
         "us-gaap_NetIncomeLoss",
+        "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+        "us-gaap_NetIncomeLossAvailableToCommonStockholdersBasic",
+        "us-gaap:NetIncomeLossAttributableToParent",
+        "us-gaap_NetIncomeLossAttributableToParent",
         # IFRS
         "ifrs-full:ProfitLoss",
+        "ifrs-full:ProfitLossAttributableToOwnersOfParent",
         # Common textual labels
         "Net Income",
         "Net Earnings",
+        "Net income attributable to common stockholders",
         "Income (loss) from continuing operations",
     ],
 

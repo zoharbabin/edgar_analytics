@@ -148,3 +148,36 @@ def test_log_multi_year_negative_cagr(caplog):
     assert "Overall revenue has contracted" in caplog.text, (
         "Expected negative CAGR log message."
     )
+
+
+def test_prepare_dataframe_preserves_string_columns():
+    """_prepare_dataframe_for_presentation should not coerce _FormType/_FilingDate to NaN."""
+    from edgar_analytics.reporting import ReportingEngine
+    engine = ReportingEngine()
+
+    df = pd.DataFrame({
+        "_FormType": ["10-K", "10-K"],
+        "_FilingDate": ["2024-01-15", "2024-02-20"],
+        "Revenue": [1000, 2000],
+        "Net Income": [100, 200],
+    }, index=["AAPL", "MSFT"])
+
+    result = engine._prepare_dataframe_for_presentation(df, "AAPL")
+    assert result.loc["AAPL", "_FormType"] == "10-K"
+    assert result.loc["MSFT", "_FilingDate"] == "2024-02-20"
+
+
+def test_prepare_csv_preserves_string_columns():
+    """_prepare_dataframe_for_csv should not coerce _FormType/_FilingDate to NaN."""
+    from edgar_analytics.reporting import ReportingEngine
+    engine = ReportingEngine()
+
+    df = pd.DataFrame({
+        "_FormType": ["10-K", "20-F"],
+        "_FilingDate": ["2024-01-15", "2024-02-20"],
+        "Revenue": [1000, 2000],
+    }, index=["AAPL", "UL"])
+
+    result = engine._prepare_dataframe_for_csv(df, "AAPL")
+    assert result.loc["AAPL", "_FormType"] == "10-K"
+    assert result.loc["UL", "_FilingDate"] == "2024-02-20"
