@@ -54,12 +54,14 @@ class TestCacheResourceManagement:
 class TestPathTraversalCSV:
     """#2: CSV path traversal check must trigger before resolve()."""
 
-    def test_dotdot_rejected(self):
+    def test_dotdot_rejected(self, tmp_path):
         from edgar_analytics.reporting import ReportingEngine
         import pandas as pd
         engine = ReportingEngine()
         df = pd.DataFrame({"Revenue": [1000]}, index=["AAPL"])
-        engine._save_csv_if_requested(df, "../../../etc/passwd")
+        evil_path = str(tmp_path / ".." / ".." / "evil.csv")
+        engine._save_csv_if_requested(df, evil_path)
+        assert not Path(evil_path).exists(), "Traversal path should not create a file"
 
     def test_normal_path_accepted(self, tmp_path):
         from edgar_analytics.reporting import ReportingEngine

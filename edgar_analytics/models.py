@@ -413,7 +413,8 @@ class AnalysisResult:
         main = d.get("main_ticker", "")
         tickers = {}
         for t, td in d.get("tickers", {}).items():
-            tickers[t] = TickerAnalysis.from_dict(t, td)
+            if isinstance(td, dict):
+                tickers[t] = TickerAnalysis.from_dict(t, td)
         return cls(main_ticker=main, tickers=tickers)
 
     def to_json_dict(self) -> dict:
