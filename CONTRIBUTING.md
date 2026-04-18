@@ -74,6 +74,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ### Architecture
 
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the data pipeline design and why the hybrid validation approach (synonym matching + CompanyFacts cross-validation) was chosen.
+
 - **`metrics.py`** — single-period financial ratio computation
 - **`multi_period_analysis.py`** — multi-period growth, CAGR, alerts
 - **`forecasting.py`** — strategy-based revenue forecasting

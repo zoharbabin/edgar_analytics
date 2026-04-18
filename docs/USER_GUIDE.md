@@ -507,4 +507,4 @@ with TickerOrchestrator() as orch:
 
 ---
 
-*For API reference and module documentation, see [README.md](../README.md). For contributing guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md).*
+*For a complete list of every supported concept and metric with formulas and business context, see [METRICS_REFERENCE.md](METRICS_REFERENCE.md). For pipeline architecture, see [ARCHITECTURE.md](ARCHITECTURE.md). For API reference, see [README.md](../README.md). For contributing, see [CONTRIBUTING.md](../CONTRIBUTING.md).*

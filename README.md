@@ -22,7 +22,7 @@ df = result.to_dataframe()  # One row per ticker
 
 ---
 
-> **New to the library?** See the **[User Guide](docs/USER_GUIDE.md)** for real-world workflows, scoring model interpretation, and practical recipes.
+> **New to the library?** See the **[User Guide](docs/USER_GUIDE.md)** for real-world workflows and practical recipes, the **[Metrics Reference](docs/METRICS_REFERENCE.md)** for every supported concept and metric with business context, and the **[Architecture Guide](docs/ARCHITECTURE.md)** for how the data pipeline works.
 
 ## Table of Contents
 1. [Overview](#overview)
