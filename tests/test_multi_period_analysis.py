@@ -21,7 +21,7 @@ def test_retrieve_multi_year_data_no_10k():
 
     # Also mock MultiFinancials
     with patch("edgar_analytics.multi_period_analysis.Company", return_value=mock_company), \
-         patch("edgar_analytics.multi_period_analysis.MultiFinancials") as mock_mf:
+         patch("edgar_analytics.multi_period_analysis.MultiFinancials") as _mock_mf:
         # Now "Company(ticker)" is replaced with our mock_company
         # "MultiFinancials(...)" is replaced with mock_mf
         data = retrieve_multi_year_data("FAKE", n_years=2, n_quarters=2)
@@ -80,7 +80,6 @@ def test_compute_cagr():
 
 def test_compute_cagr_negative_last_val():
     """Negative last value returns NaN (CAGR is undefined for non-positive values)."""
-    import numpy as np
     import pandas as pd
     data = {"2020": 100, "2023": -50}
     assert pd.isna(compute_cagr(data))

@@ -8,7 +8,7 @@ from rich.console import Console
 class LayoutStrategy(abc.ABC):
     """
     Abstract base class for displaying the final metrics DataFrame.
-    Implementations can show it as Rich panels, horizontal tables, 
+    Implementations can show it as Rich panels, horizontal tables,
     or anything else. This keeps the design extensible.
     """
 
@@ -18,7 +18,7 @@ class LayoutStrategy(abc.ABC):
     @abc.abstractmethod
     def render(self, df_summary: pd.DataFrame) -> None:
         """
-        Renders the final DataFrame in the console. 
+        Renders the final DataFrame in the console.
         Must be implemented by subclasses.
         """
         pass

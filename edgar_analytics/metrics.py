@@ -8,7 +8,7 @@ free cash flow, EBIT, EBITDA, net margin, etc.
 Uses 'synonyms_utils.compute_capex_single_period' for safer fallback when explicit 'capital_expenditures' is absent.
 """
 
-from typing import List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -67,16 +67,16 @@ class RawMetrics(TypedDict, total=False):
     _is_financial: bool
     _scores: dict
 
-from .config import ALERTS_CONFIG, get_alerts_config
-from .scores import compute_all_scores, run_dqc_checks
-from .synonyms import SYNONYMS
-from .synonyms_utils import (
+from .config import get_alerts_config  # noqa: E402
+from .scores import compute_all_scores, run_dqc_checks  # noqa: E402
+from .synonyms import SYNONYMS  # noqa: E402
+from .synonyms_utils import (  # noqa: E402
     find_synonym_value,
     flip_sign_if_negative_expense,
     compute_capex_single_period
 )
-from .data_utils import ensure_dataframe, make_numeric_df
-from .logging_utils import get_logger
+from .data_utils import ensure_dataframe, make_numeric_df  # noqa: E402
+from .logging_utils import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -287,7 +287,7 @@ def compute_ratios_and_metrics(
 
     # ========== ACCOUNTING IDENTITY VALIDATION ==========
     identity_check = _validate_accounting_identity(total_assets, total_liabs, total_equity)
-    metrics["_IdentityCheck"] = identity_check
+    metrics["_IdentityCheck"] = identity_check  # type: ignore[assignment]
     metrics["_is_financial"] = is_financial
 
     # ========== ALERTS ==========
@@ -332,13 +332,13 @@ def compute_ratios_and_metrics(
         dqc_warnings = run_dqc_checks(stmt_df, debug_label=label)
         alerts.extend(dqc_warnings)
 
-    metrics["Alerts"] = alerts
+    metrics["Alerts"] = alerts  # type: ignore[assignment]
 
     # ========== SCORING MODELS ==========
     scores = compute_all_scores(metrics, balance_df, income_df, cash_df, is_financial=is_financial)
-    metrics["_scores"] = scores
+    metrics["_scores"] = scores  # type: ignore[assignment]
 
-    return metrics
+    return metrics  # type: ignore[return-value]
 
 
 def adjust_for_dep_in_cogs(
@@ -453,7 +453,7 @@ def get_single_filing_snapshot(
     :param form_type: e.g. "10-K", "20-F", or "10-Q"
     :return: dict with "metrics" and "filing_info" sub-dicts
     """
-    result = {"metrics": {}, "filing_info": {}}
+    result: dict[str, Any] = {"metrics": {}, "filing_info": {}}
     tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
 
     try:
@@ -515,7 +515,7 @@ def get_prior_annual_metrics(
             metrics = compute_ratios_and_metrics(bs, inc, cf, alerts_config=alerts_config, is_financial=is_financial)
             if metrics:
                 logger.info("%s: Loaded prior-year metrics from %s for YoY scores.", tkr, ft)
-                return metrics
+                return metrics  # type: ignore[return-value]
         except Exception as exc:
             logger.debug("%s: Failed to get prior %s filing: %s", tkr, ft, exc)
-    return {}
+    return {}  # type: ignore[return-value]

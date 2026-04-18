@@ -8,12 +8,10 @@ ReportingEngine tests have been moved to test_reporting.py.
 
 import pytest
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 import logging
 
 from edgar_analytics.orchestrator import TickerOrchestrator, TickerDetector, TickerFetchError
-from edgar_analytics.models import AnalysisResult, TickerAnalysis
-from edgar_analytics.reporting import ReportingEngine
+from edgar_analytics.models import AnalysisResult
 
 
 @pytest.mark.usefixtures("caplog")
@@ -23,7 +21,7 @@ def test_analyze_company_basic(caplog):
     and logs "Comparing AAPL with peers: []" even if no peers.
     """
     with patch("edgar_analytics.orchestrator.TickerOrchestrator._analyze_ticker_for_metrics") as mock_analyze, \
-         patch("edgar_analytics.reporting.ReportingEngine.summarize_metrics_table") as mock_summary, \
+         patch("edgar_analytics.reporting.ReportingEngine.summarize_metrics_table") as _mock_summary, \
          caplog.at_level(logging.INFO, logger="edgar_analytics.orchestrator"):
 
         mock_analyze.return_value = {
@@ -130,7 +128,7 @@ class TestTickerDetector:
         "BRK.B",
         "RY.TO",
         "NGG.L",      # Deliberately not part of the regex suffix -> Should remain invalid by default,
-                     # but if you decide to allow ".L", confirm or adjust the pattern. 
+                     # but if you decide to allow ".L", confirm or adjust the pattern.
                      # If you truly want to allow ".L", ensure the pattern includes that logic.
         "BABA",
         "VTI",
@@ -162,8 +160,8 @@ class TestTickerDetector:
         "AB.C.D",      # multiple suffix groups? This might or might not pass depending on pattern
         "A#B",         # invalid character
         "aapl",        # lowercase is not allowed by the pattern
-        "A-BB-C",      # multiple suffix segments might fail if only 1 suffix is allowed 
-                       # or if pattern doesn't allow multiple segments 
+        "A-BB-C",      # multiple suffix segments might fail if only 1 suffix is allowed
+                       # or if pattern doesn't allow multiple segments
         None,          # not even a string => should raise ValueError
     ])
     def test_validate_ticker_symbol_invalid(self, invalid_ticker):
@@ -613,7 +611,6 @@ def test_sloan_accrual_known_values():
 
 def test_sloan_accrual_nan_when_no_prior():
     """Sloan Accrual not computed when no prior-year data is available."""
-    import math
     orchestrator = TickerOrchestrator(enable_cache=False)
     comp = MagicMock()
 

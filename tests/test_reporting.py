@@ -5,7 +5,6 @@ Tests for the edgar_analytics.reporting module (ReportingEngine).
 This file covers CSV export, alert/warning logs, negative CAGR scenarios, etc.
 """
 
-import pytest
 from unittest.mock import patch
 from pathlib import Path
 
@@ -44,12 +43,12 @@ def test_summarize_metrics_table_with_csv(tmp_path, dummy_metrics_map):
      - to_csv is called
      - logger mentions saving
     """
-    
+
     reporting_engine = ReportingEngine()
     outdir = tmp_path / "outputs"
     outdir.mkdir(exist_ok=True)
     csv_path = outdir / "summary.csv"
-    
+
     with patch.object(Path, "mkdir") as mock_mkdir, \
          patch("pandas.DataFrame.to_csv") as mock_to_csv, \
          patch.object(reporting_engine.logger, "info") as mock_info:

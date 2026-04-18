@@ -6,16 +6,14 @@ from unittest.mock import patch, MagicMock
 
 from edgar_analytics.forecasting import (
     forecast_revenue,
-    ArimaForecastStrategy,
-    ForecastStrategy,
-    MIN_DATA_POINTS
+    ForecastStrategy
 )
 from edgar_analytics.data_utils import parse_period_label
 
 
 class SimpleGrowthStrategy(ForecastStrategy):
     """
-    Example custom strategy for testing. 
+    Example custom strategy for testing.
     Predicts last known revenue * 1.05.
     """
 
@@ -156,11 +154,11 @@ def test_forecast_quarterly_sarimax():
 
         result = forecast_revenue(rev_dict, is_quarterly=True)
         assert result == pytest.approx(1234.56, 0.1)
-        
+
 
 def test_custom_forecast_strategy():
     """
-    Demonstrate passing a custom ForecastStrategy. 
+    Demonstrate passing a custom ForecastStrategy.
     In this example, it always grows last known revenue by +5%.
     """
     rev_dict = {

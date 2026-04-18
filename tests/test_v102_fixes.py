@@ -4,7 +4,6 @@ import json
 import math
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -177,7 +176,7 @@ class TestAmendmentPreference:
 
         with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
             mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
-            result = get_filing_snapshot_with_fallback(
+            get_filing_snapshot_with_fallback(
                 mock_comp, ("10-K", "10-K/A"), alerts_config=None,
             )
             call_args = mock_snap.call_args
@@ -206,7 +205,7 @@ class TestAmendmentPreference:
 
         with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
             mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
-            result = get_filing_snapshot_with_fallback(
+            get_filing_snapshot_with_fallback(
                 mock_comp, ("10-K", "10-K/A"), alerts_config=None,
             )
             call_args = mock_snap.call_args
@@ -231,7 +230,7 @@ class TestAmendmentPreference:
 
         with patch("edgar_analytics.metrics.get_single_filing_snapshot") as mock_snap:
             mock_snap.return_value = {"metrics": {"Revenue": 1000}, "filing_info": {}}
-            result = get_filing_snapshot_with_fallback(
+            get_filing_snapshot_with_fallback(
                 mock_comp, ("10-K", "10-K/A"), alerts_config=None,
             )
             call_args = mock_snap.call_args

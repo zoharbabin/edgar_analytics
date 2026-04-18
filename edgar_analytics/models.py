@@ -9,9 +9,11 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, fields as dc_fields
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, get_type_hints
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from .scores import (
         PerShareMetrics,
         WorkingCapitalCycle,
@@ -145,7 +147,7 @@ class ScoresResult:
                 kwargs[name] = _reconstruct_dataclass(dc_cls, raw)
             else:
                 kwargs[name] = None
-        return cls(**kwargs)
+        return cls(**kwargs)  # type: ignore[arg-type]
 
     def to_dict(self) -> dict:
         from dataclasses import asdict

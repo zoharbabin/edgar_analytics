@@ -25,24 +25,24 @@ class EdgarAnalyticsError(Exception):
 
 class TickerFetchError(EdgarAnalyticsError):
     """Raised when a ticker cannot be resolved or its filings cannot be fetched."""
-from .reporting import ReportingEngine
-from .metrics import (
-    get_single_filing_snapshot,
+
+from .reporting import ReportingEngine  # noqa: E402
+from .metrics import (  # noqa: E402
     get_filing_snapshot_with_fallback,
     get_prior_annual_metrics,
     ANNUAL_FORM_TYPES,
     QUARTERLY_FORM_TYPES,
 )
-from .scores import compute_all_scores, compute_ttm
-from .forecasting import forecast_revenue
-from .multi_period_analysis import (
+from .scores import compute_all_scores, compute_ttm  # noqa: E402
+from .forecasting import forecast_revenue  # noqa: E402
+from .multi_period_analysis import (  # noqa: E402
     retrieve_multi_year_data,
     analyze_quarterly_balance_sheets,
     check_additional_alerts_quarterly,
 )
-from .market_data import get_market_cap, get_share_price, compute_valuation_ratios
-from .cache import CacheLayer
-from .company_facts import CompanyFactsClient
+from .market_data import get_market_cap, get_share_price, compute_valuation_ratios  # noqa: E402
+from .cache import CacheLayer  # noqa: E402
+from .company_facts import CompanyFactsClient  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -265,7 +265,7 @@ class TickerOrchestrator:
 
         self._cross_validate(ticker, annual_snap)
 
-        multi_data = retrieve_multi_year_data(ticker, n_years=n_years, n_quarters=n_quarters)
+        multi_data = retrieve_multi_year_data(ticker, n_years=n_years, n_quarters=n_quarters, comp=comp)
         rev_annual = multi_data.get("annual_data", {}).get("Revenue", {})
         rev_quarterly = multi_data.get("quarterly_data", {}).get("Revenue", {})
 

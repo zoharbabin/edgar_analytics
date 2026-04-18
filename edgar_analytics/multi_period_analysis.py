@@ -11,21 +11,23 @@ import pandas as pd
 from edgar import Company, MultiFinancials
 from .logging_utils import get_logger
 from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
-from .synonyms_utils import find_synonym_value, find_best_synonym_row, compute_capex_for_column
-from .synonyms import SYNONYMS
-from .config import ALERTS_CONFIG
+from .synonyms_utils import find_best_synonym_row, compute_capex_for_column
 from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES, QUARTERLY_FORM_TYPES
 
 logger = get_logger(__name__)
 
 
-def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10) -> dict:
+def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -> dict:
     """
     Retrieve up to n_years of 10-K and n_quarters of 10-Q statements,
     building annual and quarterly data for multi-year analysis (growth, CAGR, etc.).
+
+    :param comp: Optional pre-constructed ``Company`` object to avoid a
+        redundant SEC API call.
     """
     logger.info("Retrieving multi-year data for %s: last %d annual, %d 10-Q", ticker, n_years, n_quarters)
-    comp = Company(ticker)
+    if comp is None:
+        comp = Company(ticker)
 
     annual_inc_df = pd.DataFrame()
     quarterly_inc_df = pd.DataFrame()
@@ -248,7 +250,7 @@ def extract_period_values(df: pd.DataFrame, debug_label="(unknown)") -> dict:
     Locates key income statement rows in a multi-column statement,
     returning { metric_name: {period: value, ...}, ... } by period label.
     """
-    empty = {label: {} for label, _ in _TRACKED_METRICS}
+    empty: dict = {label: {} for label, _ in _TRACKED_METRICS}
     if df.empty:
         logger.debug("extract_period_values(%s): DF empty -> returning empty dict", debug_label)
         return empty
@@ -273,7 +275,7 @@ def extract_period_values(df: pd.DataFrame, debug_label="(unknown)") -> dict:
 def find_best_row_for_synonym(df: pd.DataFrame, syn_key: str, columns_order: list, debug_label="(unknown)") -> pd.Series:
     """Finds the best row in df for syn_key. Delegates to the shared
     find_best_synonym_row in synonyms_utils."""
-    return find_best_synonym_row(df, syn_key, value_cols=columns_order, debug_label=debug_label)
+    return find_best_synonym_row(df, syn_key, value_cols=columns_order, debug_label=debug_label)  # type: ignore[return-value]
 
 
 def compute_growth_series(values_dict: dict) -> dict:
@@ -319,7 +321,7 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
     Retrieve up to n_quarters of 10-Q for inventory, receivables, free_cf detection.
     Now uses compute_capex_for_column(...) to better approximate each period's capex.
     """
-    results = {"inventory": {}, "receivables": {}, "free_cf": {}}
+    results: dict = {"inventory": {}, "receivables": {}, "free_cf": {}}
     tkr = comp.tickers[0] if comp.tickers else "UNKNOWN"
     try:
         filings_10q = None

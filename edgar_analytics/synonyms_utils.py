@@ -137,7 +137,7 @@ def find_synonym_value(
                 continue
             seen_labels.add(row_label)
             row_data = df.loc[row_label]
-            row_val = get_last_numeric_value(row_data, fallback=None, debug_label=f"{debug_label} PARTIAL [{syn}]")
+            row_val = get_last_numeric_value(row_data, fallback=None, debug_label=f"{debug_label} PARTIAL [{syn}]")  # type: ignore[arg-type]
             if row_val is not None and not pd.isna(row_val):
                 label_lower = idx_lower[df_index_str == row_label][0] if (df_index_str == row_label).any() else row_label.lower()
                 coverage = len(syn_lower) / max(len(label_lower), 1)
@@ -248,7 +248,7 @@ def compute_capex_single_period(cf_df: pd.DataFrame, debug_label: str = "CapEx")
     2) If absent, uses "cash_flow_investing" outflow minus intangible/business acquisition items.
     3) Negative results are clamped to 0.0.
     """
-    direct_capex = find_synonym_value(cf_df, SYNONYMS["capital_expenditures"], fallback=None, debug_label=f"{debug_label}-DirectCapex")
+    direct_capex = find_synonym_value(cf_df, SYNONYMS["capital_expenditures"], fallback=None, debug_label=f"{debug_label}-DirectCapex")  # type: ignore[arg-type]
     if direct_capex is not None and not pd.isna(direct_capex):
         if direct_capex < 0:
             direct_capex = abs(direct_capex)

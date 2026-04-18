@@ -153,7 +153,7 @@ class ArimaForecastStrategy(ForecastStrategy):
 def forecast_revenue(
     rev_dict: dict,
     is_quarterly: bool = False,
-    strategy: ForecastStrategy = None
+    strategy: ForecastStrategy = None  # type: ignore[assignment]
 ) -> float:
     """
     Main entry point to forecast the next revenue value. By default, uses ArimaForecastStrategy

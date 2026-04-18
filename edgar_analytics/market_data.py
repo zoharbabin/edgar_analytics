@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-import pandas as pd
 
 from .logging_utils import get_logger
 

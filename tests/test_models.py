@@ -19,7 +19,6 @@ from edgar_analytics.scores import (
     DuPontDecomposition,
     PiotroskiScore,
     AltmanZScore,
-    BeneishMScore,
 )
 
 

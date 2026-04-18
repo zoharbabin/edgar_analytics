@@ -70,16 +70,16 @@ def analyze(
         (e.g. ``{"HIGH_LEVERAGE": 5.0}``).
     :returns: An :class:`AnalysisResult` with typed fields for every ticker.
     """
-    orchestrator = TickerOrchestrator()
-    return orchestrator.analyze(
-        ticker=ticker,
-        peers=peers,
-        n_years=n_years,
-        n_quarters=n_quarters,
-        disable_forecast=disable_forecast,
-        identity=identity,
-        alerts_config=alerts_config,
-    )
+    with TickerOrchestrator() as orchestrator:
+        return orchestrator.analyze(
+            ticker=ticker,
+            peers=peers,
+            n_years=n_years,
+            n_quarters=n_quarters,
+            disable_forecast=disable_forecast,
+            identity=identity,
+            alerts_config=alerts_config,
+        )
 
 
 __all__ = [

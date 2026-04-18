@@ -4,7 +4,7 @@ import math
 import pytest
 from unittest.mock import patch, MagicMock
 
-from edgar_analytics.market_data import get_market_cap, get_share_price, compute_valuation_ratios, ValuationRatios
+from edgar_analytics.market_data import get_market_cap, get_share_price, compute_valuation_ratios
 from edgar_analytics.scores import PerShareMetrics
 
 

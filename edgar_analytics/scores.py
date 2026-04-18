@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from .data_utils import parse_period_label

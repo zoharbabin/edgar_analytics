@@ -23,7 +23,7 @@ def test_parse_period_label_invalid_date():
 
 @pytest.mark.parametrize("value,expected", [
     # With abs_x >= 1e12 => x / 1e12 => "...T"
-    (1234567890123.45, "1.23T"),  
+    (1234567890123.45, "1.23T"),
     # With abs_x >= 1e9 => x / 1e9 => "...B"
     # But 987654321.12 is < 1e9 => actually 9.8765e8 => so it is x / 1e6 => "987.65M"
     (987654321.12, "987.65M"),

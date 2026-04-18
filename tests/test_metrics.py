@@ -7,7 +7,6 @@ Includes tests for Interest Expense, EBIT (standard), EBITDA (standard), and Int
 """
 
 import pytest
-import numpy as np
 import pandas as pd
 from unittest.mock import MagicMock
 

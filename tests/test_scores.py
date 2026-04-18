@@ -2,7 +2,6 @@
 
 import math
 import pytest
-import numpy as np
 import pandas as pd
 
 from edgar_analytics.scores import (

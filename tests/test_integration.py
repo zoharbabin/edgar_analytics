@@ -11,7 +11,6 @@ unit tests with mocks cannot detect.
 
 import os
 import pytest
-import numpy as np
 import pandas as pd
 
 from edgar import Company, set_identity
@@ -21,7 +20,6 @@ from edgar_analytics.metrics import (
     get_filing_snapshot_with_fallback,
     ANNUAL_FORM_TYPES,
     QUARTERLY_FORM_TYPES,
-    compute_ratios_and_metrics,
 )
 from edgar_analytics.multi_period_analysis import (
     retrieve_multi_year_data,

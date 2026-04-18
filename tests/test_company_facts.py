@@ -1,6 +1,5 @@
 """tests/test_company_facts.py — unit tests for CompanyFactsClient."""
 
-import json
 import pytest
 from unittest.mock import patch, MagicMock
 

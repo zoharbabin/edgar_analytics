@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import time
 from typing import Any, Optional
 
 from .logging_utils import get_logger
@@ -59,7 +58,7 @@ class CacheLayer:
             return None
         key = self._key(namespace, *parts)
         try:
-            return self._cache.get(key)
+            return self._cache.get(key)  # type: ignore[union-attr]
         except Exception as exc:
             logger.warning("Cache deserialization failed for key %s: %s", key[:12], exc)
             return None
@@ -69,9 +68,9 @@ class CacheLayer:
             return
         key = self._key(namespace, *parts)
         if ttl is None:
-            self._cache.set(key, value)
+            self._cache.set(key, value)  # type: ignore[union-attr]
         else:
-            self._cache.set(key, value, expire=ttl)
+            self._cache.set(key, value, expire=ttl)  # type: ignore[union-attr]
 
     def set_immutable(self, value: Any, namespace: str, *parts: str) -> None:
         """Cache a value forever (no TTL). Use for past-period filings."""
