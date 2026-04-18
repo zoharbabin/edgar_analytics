@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.3] - 2026-04-17
+
+### Security
+- **Cache directory permissions**: Cache directory is now created with `0o700` (owner-only) permissions, mitigating pickle deserialization risks from tampered cache files. Deserialization errors are caught and logged instead of propagating.
+- **Path traversal checks**: `_save_csv_if_requested()` now validates `..` in path components *before* `resolve()` (previously the check was dead code). `to_parquet()` also rejects `..` traversal.
+
+### Architecture
+- **CacheLayer resource management**: Added `__del__`, `__enter__`/`__exit__` context manager protocol. `close()` is now idempotent (sets `_cache = None`).
+- **TickerOrchestrator context manager**: Added `close()`, `__enter__`/`__exit__` so file descriptors from the cache are released in long-running processes.
+- **Identity lock**: `_set_identity()` now serialized via `_IDENTITY_LOCK` to prevent races when concurrent `analyze()` calls use different identities.
+
+### Testing
+- Added cache directory permission test (0o700 on creation).
+- Added cache corrupt-entry graceful-return test.
+- Added CacheLayer context manager + close idempotency + `__del__` tests (3 tests).
+- Added CSV path traversal rejection + normal path acceptance tests (2 tests).
+- Added Parquet path traversal rejection + normal path acceptance tests (2 tests).
+- Added TickerOrchestrator context manager test.
+- Added identity lock existence test.
+- Test count: 390 → 401 (+11 tests).
+
 ## [1.0.2] - 2026-04-17
 
 ### Financial Accuracy

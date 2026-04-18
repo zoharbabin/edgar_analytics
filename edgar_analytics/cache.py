@@ -7,11 +7,16 @@ Requires the ``cache`` extra::
 When ``diskcache`` is unavailable, the cache layer is a transparent no-op.
 Past-period filings are immutable and cached forever.  Current-period data
 uses a 24-hour TTL.
+
+**Security note**: diskcache uses pickle internally. The cache directory
+is restricted to owner-only permissions (0o700) on creation to mitigate
+tampered-payload risks.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import time
 from typing import Any, Optional
 
@@ -40,6 +45,7 @@ class CacheLayer:
         self._enabled = enabled and HAS_DISKCACHE
         self._cache: Optional[Any] = None
         if self._enabled:
+            os.makedirs(directory, mode=0o700, exist_ok=True)
             self._cache = diskcache.Cache(directory)
             logger.debug("Disk cache initialized at %s", directory)
 
@@ -52,7 +58,11 @@ class CacheLayer:
         if not self._enabled:
             return None
         key = self._key(namespace, *parts)
-        return self._cache.get(key)
+        try:
+            return self._cache.get(key)
+        except Exception as exc:
+            logger.warning("Cache deserialization failed for key %s: %s", key[:12], exc)
+            return None
 
     def set(self, value: Any, namespace: str, *parts: str, ttl: Optional[int] = None) -> None:
         if not self._enabled:
@@ -74,6 +84,16 @@ class CacheLayer:
     def close(self) -> None:
         if self._cache is not None:
             self._cache.close()
+            self._cache = None
+
+    def __del__(self) -> None:
+        self.close()
+
+    def __enter__(self) -> CacheLayer:
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
 
     @property
     def enabled(self) -> bool:

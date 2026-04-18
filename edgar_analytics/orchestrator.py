@@ -84,12 +84,23 @@ class TickerOrchestrator:
     _SEC_LAST_REQUEST = 0.0
     _SEC_MIN_INTERVAL = 0.1
 
+    _IDENTITY_LOCK = threading.Lock()
+
     def __init__(self, cache_dir: Optional[str] = None, enable_cache: bool = True) -> None:
         self.logger = logger
         self.reporting_engine = ReportingEngine()
         self._cache = CacheLayer(directory=cache_dir or ".edgar_cache", enabled=enable_cache)
         self._facts_client = CompanyFactsClient()
         self._alerts_config: Optional[Dict[str, Any]] = None
+
+    def close(self) -> None:
+        self._cache.close()
+
+    def __enter__(self) -> "TickerOrchestrator":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
 
     def analyze(
         self,
@@ -210,17 +221,18 @@ class TickerOrchestrator:
         )
 
     def _set_identity(self, identity: Optional[str]) -> None:
-        if identity:
-            set_identity(identity)
-        else:
-            self.logger.warning(
-                "No --identity provided. SEC EDGAR requires a valid identity "
-                "(e.g. 'Name <email>'). Set via --identity or EDGAR_IDENTITY env var."
-            )
-            from edgar_analytics import __version__
-            default = f"edgar-analytics/{__version__} <edgar-analytics@users.noreply.github.com>"
-            env_identity = os.environ.get("EDGAR_IDENTITY", default)
-            set_identity(env_identity)
+        with self._IDENTITY_LOCK:
+            if identity:
+                set_identity(identity)
+            else:
+                self.logger.warning(
+                    "No --identity provided. SEC EDGAR requires a valid identity "
+                    "(e.g. 'Name <email>'). Set via --identity or EDGAR_IDENTITY env var."
+                )
+                from edgar_analytics import __version__
+                default = f"edgar-analytics/{__version__} <edgar-analytics@users.noreply.github.com>"
+                env_identity = os.environ.get("EDGAR_IDENTITY", default)
+                set_identity(env_identity)
 
     def _analyze_ticker_for_metrics(
         self,

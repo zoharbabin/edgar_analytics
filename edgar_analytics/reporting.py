@@ -253,10 +253,11 @@ class ReportingEngine:
         if not csv_path or df_summary.empty:
             return
         try:
-            path_obj = Path(csv_path).resolve()
-            if str(path_obj) == "/" or ".." in path_obj.parts:
+            raw_path = Path(csv_path)
+            if ".." in raw_path.parts:
                 self.logger.error("CSV path invalid or insecure: %s", csv_path)
                 return
+            path_obj = raw_path.resolve()
             path_obj.parent.mkdir(parents=True, exist_ok=True)
             df_summary.to_csv(path_obj, index=True)
             self.console.print(f"[green]Snapshot summary saved to {csv_path}[/green]")

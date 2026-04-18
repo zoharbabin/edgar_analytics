@@ -480,7 +480,10 @@ class AnalysisResult:
         """
         import pandas as pd
 
-        base = Path(path)
+        raw = Path(path)
+        if ".." in raw.parts:
+            raise ValueError(f"Path traversal not allowed: {path!r}")
+        base = raw.resolve()
         stem = base.stem
         parent = base.parent
 
