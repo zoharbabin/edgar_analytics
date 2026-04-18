@@ -138,3 +138,100 @@ def test_make_numeric_df_deduplicates_index():
     result = make_numeric_df(df, debug_label="testDedup")
     assert not result.index.duplicated().any()
     assert result.loc["Revenue", "2023"] == 500
+
+
+class TestStatementDFConversion:
+    """Tests for converting edgartools Statement-style DataFrames."""
+
+    def _make_statement_df(self):
+        """Create a DataFrame mimicking edgartools Statement.to_dataframe()."""
+        return pd.DataFrame({
+            "concept": [
+                "us-gaap_Abstract", "us-gaap_Revenue", "us-gaap_CostOfRevenue",
+                "us-gaap_Revenue",
+            ],
+            "label": ["Income:", "Net sales", "Cost of sales", "Products"],
+            "standard_concept": [np.nan, "Revenue", "CostOfRevenue", np.nan],
+            "2024-09-28": [np.nan, 391035e6, 210352e6, 200000e6],
+            "2023-09-30": [np.nan, 383285e6, 214137e6, 190000e6],
+            "level": [1, 2, 2, 3],
+            "abstract": [True, False, False, False],
+            "dimension": [False, False, False, True],
+        })
+
+    def test_converts_label_to_index(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert "Net sales" in result.index
+        assert "Cost of sales" in result.index
+
+    def test_drops_abstract_rows(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert "Income:" not in result.index
+
+    def test_drops_dimension_rows(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert "Products" not in result.index
+
+    def test_adds_concept_tag_rows(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert "us-gaap_CostOfRevenue" in result.index
+
+    def test_keeps_only_value_columns(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert "2024-09-28" in result.columns
+        assert "concept" not in result.columns
+        assert "abstract" not in result.columns
+
+    def test_values_are_correct(self):
+        df = self._make_statement_df()
+        result = ensure_dataframe(df, "test-stmt")
+        assert result.loc["Net sales", "2024-09-28"] == pytest.approx(391035e6)
+
+    def test_falls_back_to_dimension_rows_if_all_filtered(self):
+        """If filtering out dimension rows leaves nothing, keep them."""
+        df = pd.DataFrame({
+            "label": ["Products", "Services"],
+            "concept": ["us-gaap_ProductRevenue", "us-gaap_ServiceRevenue"],
+            "2024-09-28": [200e6, 100e6],
+            "abstract": [False, False],
+            "dimension": [True, True],
+        })
+        result = ensure_dataframe(df, "test-all-dim")
+        assert len(result) > 0
+        assert "Products" in result.index
+
+
+class TestGetFinancialStatementCallable:
+    """Test that _get_financial_statement calls methods."""
+
+    def test_calls_method(self):
+        from edgar_analytics.metrics import _get_financial_statement
+        from unittest.mock import MagicMock
+
+        mock_fin = MagicMock()
+        mock_fin.income_statement.return_value = "called_result"
+        result = _get_financial_statement(mock_fin, "income_statement")
+        assert result == "called_result"
+        mock_fin.income_statement.assert_called_once()
+
+    def test_returns_property_directly(self):
+        from edgar_analytics.metrics import _get_financial_statement
+
+        class FakeFinancials:
+            balance_sheet = pd.DataFrame({"val": [1]})
+
+        result = _get_financial_statement(FakeFinancials(), "balance_sheet")
+        assert isinstance(result, pd.DataFrame)
+
+    def test_returns_none_for_missing(self):
+        from edgar_analytics.metrics import _get_financial_statement
+        from unittest.mock import MagicMock
+
+        mock_fin = MagicMock(spec=[])
+        result = _get_financial_statement(mock_fin, "nonexistent")
+        assert result is None

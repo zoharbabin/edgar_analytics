@@ -109,7 +109,9 @@ def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
     if "abstract" in df.columns:
         filtered = filtered[~filtered["abstract"].astype(bool)]
     if "dimension" in df.columns:
-        filtered = filtered[~filtered["dimension"].astype(bool)]
+        non_dim = filtered[~filtered["dimension"].astype(bool)]
+        if not non_dim.empty:
+            filtered = non_dim
 
     label_df = filtered.set_index("label")[value_cols]
 
