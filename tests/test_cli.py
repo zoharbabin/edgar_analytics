@@ -28,9 +28,9 @@ def mock_multifin():
     """
     mock_mf = MagicMock()
     # Provide trivial or None returns
-    mock_mf.get_income_statement.return_value = None
-    mock_mf.get_balance_sheet.return_value = None
-    mock_mf.get_cash_flow_statement.return_value = None
+    mock_mf.income_statement = None
+    mock_mf.balance_sheet = None
+    mock_mf.cash_flow_statement = None
     return mock_mf
 
 @pytest.fixture(autouse=True)

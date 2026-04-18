@@ -82,11 +82,7 @@ logger = get_logger(__name__)
 
 
 def _get_financial_statement(financials, statement_type: str):
-    """Retrieve a financial statement, handling both old method-based and new
-    property-based edgartools APIs transparently."""
-    method_name = f"get_{statement_type}"
-    if hasattr(financials, method_name) and callable(getattr(financials, method_name)):
-        return getattr(financials, method_name)()
+    """Retrieve a financial statement from a Financials or MultiFinancials object."""
     return getattr(financials, statement_type, None)
 
 

@@ -303,16 +303,6 @@ def test_get_financial_statement_new_api():
     assert not result.empty
 
 
-def test_get_financial_statement_old_api():
-    """_get_financial_statement uses get_ method when available."""
-    class OldStyleFinancials:
-        def get_balance_sheet(self):
-            return pd.DataFrame({"Value": [200]}, index=["Total assets"])
-
-    result = _get_financial_statement(OldStyleFinancials(), "balance_sheet")
-    assert isinstance(result, pd.DataFrame)
-    assert result.iloc[0, 0] == 200
-
 
 def test_negative_equity_alerts_and_nan_ratios():
     """Negative equity produces NaN D/E, NaN ROE (consistent with DuPont), insolvency alert."""
