@@ -25,20 +25,20 @@ setuptools.setup(
         "numpy>=1.23,<3",
         "edgartools>=5.0,<6",
         "click>=8.0,<9",
-        "rich>=12.0,<15",
+        "rich>=12.0,<16",
     ],
     extras_require={
         "forecast": [
             "statsmodels>=0.13,<1",
         ],
         "valuation": [
-            "yfinance>=0.2,<1",
+            "yfinance>=0.2,<2",
         ],
         "cache": [
             "diskcache>=5.6,<6",
         ],
         "parquet": [
-            "pyarrow>=12.0,<18",
+            "pyarrow>=12.0,<24",
         ],
         "test": [
             "pytest",
