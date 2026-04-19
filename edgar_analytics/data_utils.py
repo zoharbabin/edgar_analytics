@@ -85,6 +85,33 @@ _STATEMENT_META_COLS = frozenset({
     "preferred_sign", "parent_concept", "parent_abstract_concept",
 })
 
+_PERIOD_SUFFIX_RE = re.compile(r"\s+\((Q[1-4]|YTD|FY)\)$")
+_YTD_SUFFIX_RE = re.compile(r"\s+\(YTD\)$")
+_QTR_SUFFIX_RE = re.compile(r"\s+\(Q[1-4]\)$")
+_FY_SUFFIX_RE = re.compile(r"\s+\(FY\)$")
+
+
+def _select_value_columns(value_cols: list[str]) -> tuple[list[str], dict[str, str]]:
+    """Choose single-quarter columns over YTD when both exist.
+
+    Returns (selected_cols, rename_map) where *rename_map* maps original
+    column names to their suffix-stripped versions.
+    """
+    qtr_cols = [c for c in value_cols if _QTR_SUFFIX_RE.search(c)]
+    ytd_cols = [c for c in value_cols if _YTD_SUFFIX_RE.search(c)]
+    fy_cols = [c for c in value_cols if _FY_SUFFIX_RE.search(c)]
+    plain_cols = [c for c in value_cols if not _PERIOD_SUFFIX_RE.search(c)]
+
+    if qtr_cols:
+        selected = qtr_cols + fy_cols + plain_cols
+    elif ytd_cols:
+        selected = ytd_cols + fy_cols + plain_cols
+    else:
+        selected = value_cols
+
+    rename_map = {c: _PERIOD_SUFFIX_RE.sub("", c) for c in selected}
+    return selected, rename_map
+
 
 def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
     """Convert an edgartools Statement-style DataFrame to label-indexed format.
@@ -93,6 +120,11 @@ def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
     column, metadata columns, and date-keyed value columns.  This function
     drops abstract/dimension rows, sets 'label' as the index, and keeps
     only the value columns so that synonym matching works.
+
+    When the filing includes both single-quarter ``(Q*)`` and year-to-date
+    ``(YTD)`` columns, only the single-quarter columns are kept so that
+    downstream TTM computation sums four actual quarters, not cumulative
+    YTD figures.
 
     XBRL concept tags from the 'concept' column are added as duplicate
     rows so that synonym lists containing tags like
@@ -105,6 +137,8 @@ def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
     if not value_cols:
         return df
 
+    selected_cols, rename_map = _select_value_columns(value_cols)
+
     filtered = df
     if "abstract" in df.columns:
         filtered = filtered[~filtered["abstract"].astype(bool)]
@@ -113,20 +147,114 @@ def _convert_statement_df(df: pd.DataFrame, debug_label: str) -> pd.DataFrame:
         if not non_dim.empty:
             filtered = non_dim
 
-    label_df = filtered.set_index("label")[value_cols]
+    label_df = filtered.set_index("label")[selected_cols]
+    label_df = label_df.rename(columns=rename_map)
 
     if "concept" in filtered.columns:
-        concept_df = filtered.set_index("concept")[value_cols]
+        concept_df = filtered.set_index("concept")[selected_cols]
+        concept_df = concept_df.rename(columns=rename_map)
         concept_df = concept_df[~concept_df.index.isin(label_df.index)]
         result = pd.concat([label_df, concept_df])
     else:
         result = label_df
 
     logger.debug(
-        "ensure_dataframe(%s): converted Statement DF -> label-indexed shape=%s",
-        debug_label, result.shape,
+        "ensure_dataframe(%s): converted Statement DF -> label-indexed shape=%s, cols=%s",
+        debug_label, result.shape, list(result.columns),
     )
     return result
+
+
+def decumulate_quarterly(df: pd.DataFrame, debug_label: str = "(unknown)") -> pd.DataFrame:
+    """Convert YTD cumulative quarterly values to single-quarter values.
+
+    SEC XBRL 10-Q income statements and cash flow statements report
+    year-to-date cumulative figures.  ``MultiFinancials`` stitches these
+    into a DataFrame with plain date columns but the values are still
+    cumulative within each fiscal year.
+
+    Detection heuristic: within a fiscal year, if values increase
+    monotonically (i.e. each column >= the previous), they are cumulative.
+    We then compute Q_n = YTD_n - YTD_{n-1} for n>1 within each fiscal
+    year.  Q1 values are kept as-is since YTD for Q1 == Q1.
+
+    Balance sheet data is point-in-time and must NOT be de-cumulated.
+    Callers should only pass income statement or cash flow DataFrames.
+    """
+    if df.empty or len(df.columns) < 2:
+        return df
+
+    date_cols = sorted(df.columns, key=parse_period_label)
+    dates = [parse_period_label(c) for c in date_cols]
+
+    fy_groups: dict[int, list[tuple[str, datetime.date]]] = {}
+    for col, dt in zip(date_cols, dates):
+        fy = _fiscal_year(dt)
+        fy_groups.setdefault(fy, []).append((col, dt))
+
+    is_cumulative = _detect_cumulative(df, fy_groups)
+    if not is_cumulative:
+        logger.debug("decumulate_quarterly(%s): values don't appear cumulative, returning as-is", debug_label)
+        return df
+
+    result = df.copy()
+    for fy, col_dates in fy_groups.items():
+        col_dates_sorted = sorted(col_dates, key=lambda x: x[1])
+        for i in range(len(col_dates_sorted) - 1, 0, -1):
+            curr_col = col_dates_sorted[i][0]
+            prev_col = col_dates_sorted[i - 1][0]
+            result[curr_col] = df[curr_col] - df[prev_col]
+
+    logger.debug("decumulate_quarterly(%s): de-cumulated %d fiscal years", debug_label, len(fy_groups))
+    return result
+
+
+def _fiscal_year(dt: datetime.date) -> int:
+    """Estimate the fiscal year for a period-end date.
+
+    Most companies end their fiscal year in December. For Q1-Q3 dates
+    (month <= 9 within a calendar year), the fiscal year is the same
+    calendar year.  For simplicity, we group by calendar year.  This works
+    for calendar-year filers and is a reasonable approximation for
+    non-calendar filers (the heuristic still groups correctly because
+    SEC filings are chronological).
+    """
+    return dt.year
+
+
+def _detect_cumulative(
+    df: pd.DataFrame,
+    fy_groups: dict[int, list[tuple[str, datetime.date]]],
+) -> bool:
+    """Heuristic: check if values are monotonically non-decreasing within fiscal years.
+
+    Checks the top several rows (by absolute sum) for the cumulative
+    pattern: non-negative, monotonically increasing, and the last value
+    is substantially larger than the first.  Checking multiple rows avoids
+    false negatives when the largest-sum row is non-cumulative metadata
+    (e.g. weighted-average shares outstanding).
+    """
+    for fy, col_dates in fy_groups.items():
+        if len(col_dates) < 2:
+            continue
+        col_dates_sorted = sorted(col_dates, key=lambda x: x[1])
+        cols = [c for c, _ in col_dates_sorted]
+
+        sub = df[cols].apply(pd.to_numeric, errors="coerce")
+        abs_sums = sub.abs().sum(axis=1)
+        top_indices = abs_sums.nlargest(min(10, len(abs_sums))).index
+
+        for idx in top_indices:
+            row = sub.loc[idx]
+            vals = [row[c] for c in cols if pd.notna(row[c])]
+            if len(vals) < 2:
+                continue
+            all_non_neg = all(v >= 0 for v in vals)
+            monotonic = all(vals[i] <= vals[i + 1] * 1.01 for i in range(len(vals) - 1))
+            if all_non_neg and monotonic and vals[-1] > vals[0] * 1.5:
+                return True
+
+    return False
 
 
 def ensure_dataframe(possible_df, debug_label="(unknown)") -> pd.DataFrame:

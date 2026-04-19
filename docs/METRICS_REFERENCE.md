@@ -363,7 +363,7 @@ Available in `result.main.multiyear`.
 | **Annual/Quarterly Data** | `.annual_data`, `.quarterly_data` | `{metric: {period: value}}` for every extracted and derived metric | Trend analysis, building factor timeseries |
 | **YoY Growth** | `.yoy_growth` | Period-over-period % change | Identify acceleration or deceleration in any metric |
 | **CAGR** | `.cagr` | Compound annual growth rate over the full period | Normalize multi-year growth into a single rate. Revenue CAGR >10% signals strong growth. |
-| **TTM** | `.ttm` | Trailing twelve months from quarterly data | Most current annualized view. Flow metrics (revenue, NI, FCF) are summed over last 4 quarters; stock metrics (assets, equity) use the latest quarter value. |
+| **TTM** | `.ttm` | Trailing twelve months from quarterly data | Most current annualized view. Flow metrics (revenue, NI, FCF) are summed over last 4 quarters; stock metrics (assets, equity) use the latest quarter value. Quarterly income/CF values are automatically de-cumulated from SEC XBRL year-to-date figures before summing. |
 | **Revenue Forecast** | `.forecast` | ARIMA statistical projection | Directional guidance only. Works best for stable, trending revenue. Not reliable for cyclical or volatile businesses. |
 
 ---

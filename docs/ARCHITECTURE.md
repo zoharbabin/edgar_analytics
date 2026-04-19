@@ -14,6 +14,9 @@ edgartools (XBRL rendering)
 Structured DataFrames (one row per line item, columns per period)
       |
       v
+YTD de-cumulation (data_utils.py — quarterly income/CF only)
+      |
+      v
 Synonym matching (synonyms.py + synonyms_utils.py)
       |
       v
@@ -25,6 +28,18 @@ CompanyFacts cross-validation (company_facts.py)  <-- advisory, never overrides
       v
 Scores, forecasting, reporting
 ```
+
+## YTD De-Cumulation
+
+SEC XBRL 10-Q income statements and cash flow statements report **year-to-date cumulative** figures, not single-quarter values. A Q3 filing's revenue figure is Q1+Q2+Q3 combined. This is a fundamental property of SEC XBRL that affects all filers.
+
+The library handles this in two places:
+
+1. **Single-filing path** (`_convert_statement_df`): edgartools returns columns with period suffixes like `2025-09-30 (Q3)` and `2025-09-30 (YTD)`. The library prefers `(Q*)` single-quarter columns when both exist, and strips the suffixes.
+
+2. **Multi-period path** (`decumulate_quarterly`): `MultiFinancials` stitches quarterly filings into plain date columns, but the values remain cumulative. A detection heuristic identifies cumulative patterns (monotonically increasing positive values within a fiscal year), then computes `Q_n = YTD_n - YTD_{n-1}` to recover single-quarter figures. This runs before synonym matching and TTM computation.
+
+**Balance sheet data is never de-cumulated** — balance sheets are point-in-time snapshots, not flow statements.
 
 ## Two Legs of Validation
 
@@ -93,5 +108,5 @@ CompanyFacts currently validates 5 of the 79 synonym keys. The validated metrics
 | `company_facts.py` | Cross-validation client: fetches SEC XBRL data, compares with 1% tolerance |
 | `metrics.py` | Single-period metric computation using synonym lookups |
 | `multi_period_analysis.py` | Multi-period extraction using `find_best_synonym_row` |
-| `data_utils.py` | DataFrame normalization: dedup, numeric coercion, period parsing |
+| `data_utils.py` | DataFrame normalization: dedup, numeric coercion, period parsing, YTD de-cumulation |
 | `orchestrator.py` | Wires both legs together: synonym extraction, then cross-validation |

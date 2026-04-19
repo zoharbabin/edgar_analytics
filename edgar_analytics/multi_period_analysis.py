@@ -10,7 +10,7 @@ import pandas as pd
 
 from edgar import Company, MultiFinancials
 from .logging_utils import get_logger
-from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df
+from .data_utils import parse_period_label, ensure_dataframe, make_numeric_df, decumulate_quarterly
 from .synonyms_utils import find_best_synonym_row, compute_capex_for_column
 from .metrics import _get_financial_statement, ANNUAL_FORM_TYPES, QUARTERLY_FORM_TYPES
 
@@ -53,6 +53,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
             inc_10q = _get_financial_statement(multi_10q, "income_statement")
             if inc_10q is not None:
                 quarterly_inc_df = make_numeric_df(ensure_dataframe(inc_10q, f"{ticker}-multi{qtr_form}-INC"), f"{ticker}-multi{qtr_form}-INC")
+                quarterly_inc_df = decumulate_quarterly(quarterly_inc_df, f"{ticker}-multi{qtr_form}-INC")
                 logger.info("%s: Found multi-quarter income statements via %s", ticker, qtr_form)
                 break
         except Exception as e:
@@ -89,6 +90,7 @@ def retrieve_multi_year_data(ticker: str, n_years=3, n_quarters=10, comp=None) -
                 quarterly_bs_df = make_numeric_df(ensure_dataframe(bs_q, f"{ticker}-multi{qtr_form}-BS"), f"{ticker}-multi{qtr_form}-BS")
             if cf_q is not None:
                 quarterly_cf_df = make_numeric_df(ensure_dataframe(cf_q, f"{ticker}-multi{qtr_form}-CF"), f"{ticker}-multi{qtr_form}-CF")
+                quarterly_cf_df = decumulate_quarterly(quarterly_cf_df, f"{ticker}-multi{qtr_form}-CF")
             if not quarterly_bs_df.empty or not quarterly_cf_df.empty:
                 break
         except Exception as e:
@@ -340,6 +342,7 @@ def analyze_quarterly_balance_sheets(comp: Company, n_quarters=10) -> dict:
 
         bs_df = make_numeric_df(ensure_dataframe(bs_10q, f"{tkr}-multi10Q-BS"), f"{tkr}-multi10Q-BS")
         cf_df = make_numeric_df(ensure_dataframe(cf_10q, f"{tkr}-multi10Q-CF"), f"{tkr}-multi10Q-CF")
+        cf_df = decumulate_quarterly(cf_df, f"{tkr}-multi10Q-CF")
 
         if not bs_df.empty:
             bs_df.columns = bs_df.columns.map(str)

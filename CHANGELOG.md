@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.6] - 2026-04-18
+
+### Critical Fix
+- **YTD cumulative values treated as single-quarter**: SEC XBRL 10-Q income statements and cash flow statements report year-to-date cumulative figures. The library was treating these as single-quarter values, causing TTM Revenue to be ~3x the correct value (e.g. KLTR showed $407M instead of $180M).
+
+### Two-Part Fix
+- **Single-filing path**: When edgartools returns columns with `(Q3)`, `(YTD)`, `(FY)` suffixes, `_convert_statement_df()` now prefers single-quarter `(Q*)` columns over `(YTD)` cumulative columns and strips the suffixes. This ensures `find_synonym_value()` picks the actual quarter's value, not the year-to-date total.
+- **Multi-period path**: New `decumulate_quarterly()` function detects YTD cumulative patterns in `MultiFinancials` stitched data (plain date columns) and converts to single-quarter values: `Q_n = YTD_n - YTD_{n-1}` within each fiscal year. Applied to quarterly income statements and cash flow statements in `retrieve_multi_year_data()` and `analyze_quarterly_balance_sheets()`. Balance sheet data (point-in-time) is never de-cumulated.
+
+### Detection Heuristic
+- Cumulative detection checks the top 10 rows (by absolute sum) within each fiscal year for monotonically non-decreasing positive values where the last value exceeds the first by >50%. This avoids false positives from non-cumulative metadata rows (e.g. weighted-average shares outstanding).
+
+### Testing
+- Added 18 new tests: `TestSelectValueColumns` (5), `TestConvertStatementDFWithSuffixes` (1), `TestDecumulateQuarterly` (6), plus existing tests updated.
+- Test count: 427 (423 pass, 4 pre-existing MagicMock pickling failures in CLI/orchestrator tests).
+
 ## [1.0.5] - 2026-04-18
 
 ### Critical Fixes

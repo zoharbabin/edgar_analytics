@@ -8,7 +8,9 @@ from edgar_analytics.data_utils import (
     parse_period_label,
     custom_float_format,
     ensure_dataframe,
-    make_numeric_df
+    make_numeric_df,
+    decumulate_quarterly,
+    _select_value_columns,
 )
 
 def test_parse_period_label_valid_dates():
@@ -204,6 +206,128 @@ class TestStatementDFConversion:
         result = ensure_dataframe(df, "test-all-dim")
         assert len(result) > 0
         assert "Products" in result.index
+
+
+class TestSelectValueColumns:
+    """Tests for _select_value_columns — choosing Q* over YTD columns."""
+
+    def test_prefers_quarter_over_ytd(self):
+        cols = ["2025-09-30 (Q3)", "2024-09-30 (Q3)", "2025-09-30 (YTD)", "2024-09-30 (YTD)"]
+        selected, rename = _select_value_columns(cols)
+        assert "2025-09-30 (Q3)" in selected
+        assert "2024-09-30 (Q3)" in selected
+        assert "2025-09-30 (YTD)" not in selected
+        assert "2024-09-30 (YTD)" not in selected
+
+    def test_strips_suffixes(self):
+        cols = ["2025-09-30 (Q3)", "2024-09-30 (Q3)"]
+        selected, rename = _select_value_columns(cols)
+        assert rename["2025-09-30 (Q3)"] == "2025-09-30"
+        assert rename["2024-09-30 (Q3)"] == "2024-09-30"
+
+    def test_keeps_fy_alongside_quarter(self):
+        cols = ["2024-12-31 (FY)", "2025-03-31 (Q1)"]
+        selected, rename = _select_value_columns(cols)
+        assert "2024-12-31 (FY)" in selected
+        assert "2025-03-31 (Q1)" in selected
+
+    def test_falls_back_to_ytd_when_no_quarter(self):
+        cols = ["2025-09-30 (YTD)", "2024-09-30 (YTD)"]
+        selected, rename = _select_value_columns(cols)
+        assert len(selected) == 2
+
+    def test_plain_columns_unchanged(self):
+        cols = ["2025-09-30", "2025-06-30", "2025-03-31"]
+        selected, rename = _select_value_columns(cols)
+        assert selected == cols
+        assert all(rename[c] == c for c in cols)
+
+
+class TestConvertStatementDFWithSuffixes:
+    """Tests that _convert_statement_df strips period suffixes correctly."""
+
+    def test_drops_ytd_keeps_quarter(self):
+        df = pd.DataFrame({
+            "label": ["Revenue", "Cost of sales"],
+            "concept": ["us-gaap_Revenue", "us-gaap_CostOfRevenue"],
+            "2025-09-30 (Q3)": [44e6, 14e6],
+            "2024-09-30 (Q3)": [42e6, 13e6],
+            "2025-09-30 (YTD)": [135e6, 41e6],
+            "2024-09-30 (YTD)": [133e6, 46e6],
+            "abstract": [False, False],
+            "dimension": [False, False],
+        })
+        result = ensure_dataframe(df, "test-suffix")
+        assert "2025-09-30" in result.columns
+        assert "2024-09-30" in result.columns
+        assert not any("YTD" in c for c in result.columns)
+        assert not any("Q3" in c for c in result.columns)
+        assert result.loc["Revenue", "2025-09-30"] == pytest.approx(44e6)
+
+
+class TestDecumulateQuarterly:
+    """Tests for de-cumulating YTD values to single-quarter values."""
+
+    def test_decumulates_within_fiscal_year(self):
+        df = pd.DataFrame(
+            {"2025-03-31": [47e6], "2025-06-30": [91e6], "2025-09-30": [135e6]},
+            index=["Revenue"],
+        )
+        result = decumulate_quarterly(df, "test-decum")
+        assert result.loc["Revenue", "2025-03-31"] == pytest.approx(47e6)
+        assert result.loc["Revenue", "2025-06-30"] == pytest.approx(44e6)
+        assert result.loc["Revenue", "2025-09-30"] == pytest.approx(44e6)
+
+    def test_cross_year_boundary(self):
+        df = pd.DataFrame(
+            {
+                "2024-03-31": [25e6],
+                "2024-06-30": [50e6],
+                "2024-09-30": [75e6],
+                "2025-03-31": [30e6],
+                "2025-06-30": [60e6],
+            },
+            index=["Revenue"],
+        )
+        result = decumulate_quarterly(df, "test-cross-year")
+        assert result.loc["Revenue", "2024-03-31"] == pytest.approx(25e6)
+        assert result.loc["Revenue", "2024-06-30"] == pytest.approx(25e6)
+        assert result.loc["Revenue", "2024-09-30"] == pytest.approx(25e6)
+        assert result.loc["Revenue", "2025-03-31"] == pytest.approx(30e6)
+        assert result.loc["Revenue", "2025-06-30"] == pytest.approx(30e6)
+
+    def test_skips_non_cumulative_data(self):
+        df = pd.DataFrame(
+            {"2025-03-31": [100e6], "2025-06-30": [80e6], "2025-09-30": [90e6]},
+            index=["Revenue"],
+        )
+        result = decumulate_quarterly(df, "test-non-cum")
+        assert result.loc["Revenue", "2025-03-31"] == pytest.approx(100e6)
+        assert result.loc["Revenue", "2025-06-30"] == pytest.approx(80e6)
+        assert result.loc["Revenue", "2025-09-30"] == pytest.approx(90e6)
+
+    def test_single_column_unchanged(self):
+        df = pd.DataFrame({"2025-03-31": [47e6]}, index=["Revenue"])
+        result = decumulate_quarterly(df, "test-single")
+        assert result.loc["Revenue", "2025-03-31"] == pytest.approx(47e6)
+
+    def test_empty_df_unchanged(self):
+        result = decumulate_quarterly(pd.DataFrame(), "test-empty")
+        assert result.empty
+
+    def test_multiple_rows(self):
+        df = pd.DataFrame(
+            {
+                "2025-03-31": [47e6, 14e6],
+                "2025-06-30": [91e6, 27e6],
+                "2025-09-30": [135e6, 41e6],
+            },
+            index=["Revenue", "COGS"],
+        )
+        result = decumulate_quarterly(df, "test-multi-row")
+        assert result.loc["Revenue", "2025-06-30"] == pytest.approx(44e6)
+        assert result.loc["COGS", "2025-06-30"] == pytest.approx(13e6)
+        assert result.loc["COGS", "2025-09-30"] == pytest.approx(14e6)
 
 
 class TestGetFinancialStatementCallable:
