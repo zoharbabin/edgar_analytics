@@ -9,6 +9,7 @@ investing activities minus intangible/business acquisition outflows if direct
 capex is not found.
 """
 
+import re
 import threading
 from typing import Optional
 
@@ -19,6 +20,8 @@ from .logging_utils import get_logger
 from .synonyms import SYNONYMS
 
 logger = get_logger(__name__)
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
 
 _EXPENSE_LABELS = frozenset((
     "cost_of_revenue", "operating_expenses", "rnd_expenses",
@@ -69,8 +72,20 @@ def get_normalized_index(df: pd.DataFrame) -> NormalizedIndex:
 
 
 def get_last_numeric_value(row_series, fallback: float = np.nan, debug_label: str = "(unknown)") -> float:
-    """Retrieve the last non-NaN numeric value from a row Series (right-to-left).
-    If a DataFrame is passed (duplicate index), uses the first row."""
+    """Retrieve the latest-period numeric value from a row Series.
+
+    Statement DataFrames produced by ``_convert_statement_df`` arrange
+    period columns *newest-leftmost* (e.g. ``["2025-09-27", "2024-09-28",
+    "2023-09-30"]`` for a 3-year 10-K). The latest period is therefore the
+    first non-NaN numeric value scanning left-to-right.
+
+    Also performs a defensive lookup: if any column names look like ISO
+    dates, pick the row's value at ``max(date_cols)`` first. This guards
+    against future edgartools format changes that might re-order columns.
+
+    Falls back to a left-to-right scan otherwise. If a DataFrame is passed
+    (duplicate index), uses the first row.
+    """
     if isinstance(row_series, pd.DataFrame):
         logger.debug("get_last_numeric_value(%s): got DataFrame (duplicate index), using first row", debug_label)
         row_series = row_series.iloc[0]
@@ -79,7 +94,20 @@ def get_last_numeric_value(row_series, fallback: float = np.nan, debug_label: st
         logger.debug("get_last_numeric_value(%s): input not a Series -> fallback=%s", debug_label, fallback)
         return fallback
 
-    for col in reversed(row_series.index):
+    # Date-aware pick: choose the column whose name parses as the latest
+    # ISO date. ISO format (YYYY-MM-DD) sorts correctly as a string.
+    date_cols = [c for c in row_series.index
+                 if isinstance(c, str) and _ISO_DATE_RE.match(c)]
+    if date_cols:
+        latest = max(date_cols)
+        val = row_series[latest]
+        if pd.notna(val):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                pass  # fall through to scan
+
+    for col in row_series.index:
         val = row_series[col]
         if pd.notna(val):
             try:
