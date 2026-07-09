@@ -18,6 +18,11 @@ def mock_company():
     mock_comp = MagicMock()
     # e.g. no real filings fetched
     mock_comp.get_filings.return_value.head.return_value = []
+    # .latest() must resolve to None (not an auto-generated MagicMock) so
+    # get_single_filing_snapshot() takes its "no filing found" path instead
+    # of building filing_info from unconfigured Mock attributes, which are
+    # not picklable and break disk-cache writes.
+    mock_comp.get_filings.return_value.latest.return_value = None
     return mock_comp
 
 @pytest.fixture

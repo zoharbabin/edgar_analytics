@@ -90,7 +90,9 @@ def test_analyze_company_invalid_peer(caplog):
          patch("edgar_analytics.multi_period_analysis.Company"), \
          patch("edgar_analytics.multi_period_analysis.MultiFinancials"), \
          caplog.at_level(logging.WARNING, logger="edgar_analytics.orchestrator"):
-        mock_company.return_value = MagicMock()
+        comp = MagicMock()
+        comp.get_filings.return_value.latest.return_value = None
+        mock_company.return_value = comp
 
         orchestrator = TickerOrchestrator()
         orchestrator.analyze_company("AAPL", peers=["@@@", "MSFT"])
