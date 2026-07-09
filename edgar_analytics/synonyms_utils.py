@@ -71,7 +71,7 @@ def get_normalized_index(df: pd.DataFrame) -> NormalizedIndex:
     return ni
 
 
-def get_last_numeric_value(row_series, fallback: float = np.nan, debug_label: str = "(unknown)") -> float:
+def get_latest_numeric_value(row_series, fallback: float = np.nan, debug_label: str = "(unknown)") -> float:
     """Retrieve the latest-period numeric value from a row Series.
 
     Statement DataFrames produced by ``_convert_statement_df`` arrange
@@ -87,11 +87,11 @@ def get_last_numeric_value(row_series, fallback: float = np.nan, debug_label: st
     (duplicate index), uses the first row.
     """
     if isinstance(row_series, pd.DataFrame):
-        logger.debug("get_last_numeric_value(%s): got DataFrame (duplicate index), using first row", debug_label)
+        logger.debug("get_latest_numeric_value(%s): got DataFrame (duplicate index), using first row", debug_label)
         row_series = row_series.iloc[0]
 
     if not isinstance(row_series, pd.Series):
-        logger.debug("get_last_numeric_value(%s): input not a Series -> fallback=%s", debug_label, fallback)
+        logger.debug("get_latest_numeric_value(%s): input not a Series -> fallback=%s", debug_label, fallback)
         return fallback
 
     # Date-aware pick: choose the column whose name parses as the latest
@@ -147,7 +147,7 @@ def find_synonym_value(
         if match_mask.any():
             matched_label = df_index_str[match_mask][0]
             row_data = df.loc[matched_label]
-            val = get_last_numeric_value(row_data, fallback, f"{debug_label} EXACT [{syn}]")
+            val = get_latest_numeric_value(row_data, fallback, f"{debug_label} EXACT [{syn}]")
             logger.debug(
                 "find_synonym_value(%s): EXACT row='%s', value=%s",
                 debug_label, matched_label,
@@ -165,7 +165,7 @@ def find_synonym_value(
                 continue
             seen_labels.add(row_label)
             row_data = df.loc[row_label]
-            row_val = get_last_numeric_value(row_data, fallback=None, debug_label=f"{debug_label} PARTIAL [{syn}]")  # type: ignore[arg-type]
+            row_val = get_latest_numeric_value(row_data, fallback=None, debug_label=f"{debug_label} PARTIAL [{syn}]")  # type: ignore[arg-type]
             if row_val is not None and not pd.isna(row_val):
                 label_lower = idx_lower[df_index_str == row_label][0] if (df_index_str == row_label).any() else row_label.lower()
                 coverage = len(syn_lower) / max(len(label_lower), 1)

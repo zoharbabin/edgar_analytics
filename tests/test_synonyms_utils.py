@@ -10,7 +10,7 @@ from edgar_analytics.synonyms_utils import (
     flip_sign_if_negative_expense,
     compute_capex_single_period,
     compute_capex_for_column,
-    get_last_numeric_value,
+    get_latest_numeric_value,
 )
 
 def test_find_synonym_value_no_match():
@@ -251,7 +251,7 @@ def test_partial_match_row_prefers_tighter_coverage():
     assert row["2023"] == 300
 
 
-class TestGetLastNumericValue:
+class TestGetLatestNumericValue:
     """Regression tests: _convert_statement_df orders period columns
     newest-leftmost (e.g. 3-year 10-K: ['2025-09-27', '2024-09-28',
     '2023-09-30']), so the latest period must be picked by date, not by
@@ -259,26 +259,26 @@ class TestGetLastNumericValue:
 
     def test_newest_leftmost_iso_columns_picks_latest(self):
         row = pd.Series({"2025-09-27": 416161.0, "2024-09-28": 391035.0, "2023-09-30": 383285.0})
-        assert get_last_numeric_value(row) == pytest.approx(416161.0)
+        assert get_latest_numeric_value(row) == pytest.approx(416161.0)
 
     def test_newest_rightmost_iso_columns_still_picks_latest(self):
         """Defensive: works regardless of column order, not just newest-leftmost."""
         row = pd.Series({"2023-09-30": 383285.0, "2024-09-28": 391035.0, "2025-09-27": 416161.0})
-        assert get_last_numeric_value(row) == pytest.approx(416161.0)
+        assert get_latest_numeric_value(row) == pytest.approx(416161.0)
 
     def test_leading_nan_in_latest_column_falls_back_to_next_available(self):
         row = pd.Series({"2025-09-27": np.nan, "2024-09-28": 391035.0, "2023-09-30": 383285.0})
-        assert get_last_numeric_value(row) == pytest.approx(391035.0)
+        assert get_latest_numeric_value(row) == pytest.approx(391035.0)
 
     def test_non_date_labels_scan_left_to_right(self):
         """Single-column ('Value'-style) rows have no date columns at all;
         must fall back to a plain left-to-right scan."""
         row = pd.Series({"Value": 500.0})
-        assert get_last_numeric_value(row) == pytest.approx(500.0)
+        assert get_latest_numeric_value(row) == pytest.approx(500.0)
 
     def test_all_nan_returns_fallback(self):
         row = pd.Series({"2025-09-27": np.nan, "2024-09-28": np.nan})
-        assert get_last_numeric_value(row, fallback=0.0) == 0.0
+        assert get_latest_numeric_value(row, fallback=0.0) == 0.0
 
     def test_find_synonym_value_multi_year_picks_latest_period(self):
         """End-to-end: find_synonym_value on a newest-leftmost 3-year statement
