@@ -1,6 +1,9 @@
 """tests/test_v07_fixes.py — regression tests for all v0.7.0 audit fixes."""
 
 import math
+import re
+from pathlib import Path
+
 import pytest
 import pandas as pd
 
@@ -222,12 +225,30 @@ class TestAlertsConfigOverrides:
         assert ALERTS_CONFIG["HIGH_LEVERAGE"] == 3.0
 
 
+_SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+
+
 class TestVersionAttribute:
     def test_version_exists(self):
         import edgar_analytics
         assert hasattr(edgar_analytics, "__version__")
         assert isinstance(edgar_analytics.__version__, str)
-        assert edgar_analytics.__version__ == "1.0.6"
+
+    def test_version_is_semver(self):
+        import edgar_analytics
+        assert _SEMVER_RE.match(edgar_analytics.__version__), (
+            f"__version__={edgar_analytics.__version__!r} must be MAJOR.MINOR.PATCH"
+        )
+
+    def test_version_matches_setup_py(self):
+        """__init__.py and setup.py must declare the same version, or the
+        package metadata (pip show / PyPI) will disagree with
+        edgar_analytics.__version__ at runtime."""
+        import edgar_analytics
+        setup_py = Path(__file__).parent.parent / "setup.py"
+        match = re.search(r'version\s*=\s*"([^"]+)"', setup_py.read_text())
+        assert match, "Could not find version= in setup.py"
+        assert edgar_analytics.__version__ == match.group(1)
 
 
 class TestReducedPublicSurface:
