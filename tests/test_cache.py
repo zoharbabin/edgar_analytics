@@ -1,5 +1,9 @@
 """tests/test_cache.py — unit tests for CacheLayer."""
 
+import os
+import pickle
+import sqlite3
+
 import pytest
 from edgar_analytics.cache import CacheLayer, HAS_DISKCACHE
 
@@ -68,3 +72,33 @@ class TestCacheLayerWithBackend:
         cache = CacheLayer(directory=str(tmp_path / "cache"))
         assert cache.enabled is True
         cache.close()
+
+    def test_tampered_entry_is_a_miss(self, tmp_path):
+        directory = tmp_path / "cache"
+        marker = tmp_path / "marker"
+        cache = CacheLayer(directory=str(directory))
+        cache.set_immutable({"data": 42}, "filings", "AAPL", "10-K")
+        connection = sqlite3.connect(os.path.join(str(directory), "cache.db"))
+        connection.execute(
+            "UPDATE Cache SET mode = 4, value = ?",
+            (pickle.dumps(_Planted(str(marker)), protocol=2),),
+        )
+        connection.commit()
+        connection.close()
+        assert cache.get("filings", "AAPL", "10-K") is None
+        assert not marker.exists()
+        cache.close()
+
+
+def _write_marker(path):
+    with open(path, "w") as marker:
+        marker.write("ran")
+    return {}
+
+
+class _Planted:
+    def __init__(self, path):
+        self.path = path
+
+    def __reduce__(self):
+        return (_write_marker, (self.path,))

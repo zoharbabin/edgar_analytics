@@ -125,7 +125,7 @@ You can install EDGAR Analytics using `pip` or set it up within a local virtual 
 pip install edgar-analytics
 
 # With optional extras:
-pip install edgar-analytics[cache]      # Disk caching (diskcache)
+pip install edgar-analytics[cache]      # Disk caching (diskcache-community)
 pip install edgar-analytics[parquet]    # Parquet output (pyarrow)
 pip install edgar-analytics[forecast]   # Revenue forecasting (statsmodels)
 pip install edgar-analytics[valuation]  # Market data & valuation ratios (yfinance)
@@ -302,7 +302,7 @@ with TickerOrchestrator() as orchestrator:
    High-level orchestration with disk caching, concurrent peer fetching, CompanyFacts cross-validation, and TTM integration.
 
 7. **`cache.py`**  
-   SQLite-backed disk caching with TTL support (requires `diskcache`). Transparent no-op when not installed.
+   SQLite-backed disk caching with TTL support (requires `diskcache-community`). Transparent no-op when not installed.
 
 8. **`company_facts.py`**  
    SEC XBRL CompanyFacts API cross-validation. Logs discrepancies, never modifies parsed values.

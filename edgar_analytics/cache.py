@@ -4,7 +4,7 @@ Requires the ``cache`` extra::
 
     pip install edgar-analytics[cache]
 
-When ``diskcache`` is unavailable, the cache layer is a transparent no-op.
+When ``diskcache-community`` is unavailable, the cache layer is a transparent no-op.
 Past-period filings are immutable and cached forever.  Current-period data
 uses a 24-hour TTL.
 
@@ -24,7 +24,7 @@ from .logging_utils import get_logger
 logger = get_logger(__name__)
 
 try:
-    import diskcache
+    import diskcache_community as diskcache
     HAS_DISKCACHE = True
 except ImportError:
     HAS_DISKCACHE = False
@@ -36,7 +36,7 @@ _CURRENT_PERIOD_TTL = 86400  # 24 hours
 class CacheLayer:
     """SQLite-backed disk cache with TTL support.
 
-    When ``diskcache`` is not installed, all operations are no-ops and
+    When ``diskcache-community`` is not installed, all operations are no-ops and
     :meth:`get` always returns ``None``.
     """
 
@@ -45,7 +45,8 @@ class CacheLayer:
         self._cache: Optional[Any] = None
         if self._enabled:
             os.makedirs(directory, mode=0o700, exist_ok=True)
-            self._cache = diskcache.Cache(directory)
+            self._cache = diskcache.Cache(directory, disk=diskcache.SafeDisk.with_types(
+                modules=("edgar_analytics.scores",)).with_options(on_error="miss"))
             logger.debug("Disk cache initialized at %s", directory)
 
     @staticmethod

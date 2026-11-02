@@ -35,7 +35,7 @@ setuptools.setup(
             "yfinance>=0.2,<2",
         ],
         "cache": [
-            "diskcache>=5.6,<6",
+            "diskcache-community>=5.8.2,<6",
         ],
         "parquet": [
             "pyarrow>=12.0,<24",
